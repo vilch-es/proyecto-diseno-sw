@@ -2,7 +2,8 @@
 > Proyecto propuesto por el profesor Edgardo Ortiz, en el Semestre 1 del año '26.
 ###### Integrantes
 - Valentín Campos
--  Agustín Vilches
+- Agustín Vilches
+- Josefa Zúñiga
 
->[!Important] Notas importantes:
+> [!IMPORTANT]
 > Algo se nos ocurrirá en el camino
