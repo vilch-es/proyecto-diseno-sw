@@ -26,7 +26,7 @@ info:
     - `livestream.ended` — transmisión en vivo finalizada
 
 servers:
-  - url: https://api.youtube-clone.com/publication/v1
+  - url: api/v1/publicacion
     description: Servidor de producción
 
 security:
@@ -34,7 +34,7 @@ security:
 
 tags:
   - name: upload
-    description: Gestión de sesiones de subida de video
+    description: Gestión de sesiones de subida de video (RF-P1)
   - name: assets
     description: Consulta y gestión de assets técnicos
   - name: processing
