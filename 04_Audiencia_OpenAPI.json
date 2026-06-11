@@ -1,0 +1,1016 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "YouTube - Audiencia, comunidad y engagement",
+    "description": "## Responsabilidad\n\nGestionar la **relación social** entre usuarios, creadores y contenido.\n\n## Alcance\n\n- **Sí:** suscripciones, likes, comentarios, notificaciones, historial personal, community posts.\n- **No:** ranking del home, metadata editorial, transcoding, pagos.\n\n\"Suscripción\" aquí es **relación social**, no suscripción de pago (Premium va en Monetización). Debe validar que el contenido/canal referenciado exista, pero no duplicar metadata editorial completa.\n\n## Integraciones\n\n- Consume: nuevo contenido publicado (para notificar suscriptores), cambios de visibilidad de contenido.\n- Emite: usuario suscrito/desuscrito, comentario publicado/eliminado, reacción registrada, señal de engagement agregada (para Descubrimiento).",
+    "contact": { "email": "audiencia@youtube.example.com" },
+    "license": { "name": "Apache 2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0.html" },
+    "version": "1.0.0"
+  },
+  "servers": [ { "url": "/api/v1/audiencia" } ],
+  "tags": [
+    { "name": "subscriptions", "description": "Suscripciones (RF-A1)" },
+    { "name": "reactions", "description": "Reacciones (RF-A2)" },
+    { "name": "comments", "description": "Comentarios (RF-A3)" },
+    { "name": "notifications", "description": "Notificaciones (RF-A4)" },
+    { "name": "history", "description": "Historial y listas personales (RF-A5)" },
+    { "name": "community", "description": "Comunidad del canal (RF-A6)" }
+  ],
+  "paths": {
+    "/subscriptions": {
+      "post": {
+        "tags": ["subscriptions"],
+        "summary": "Seguir un canal.",
+        "description": "RF-A1: Permite que un usuario siga un canal.",
+        "operationId": "subscribeToChannel",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["userId", "channelId"],
+                "properties": {
+                  "userId": { "type": "string" },
+                  "channelId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Suscripción creada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Subscription" }
+              }
+            }
+          },
+          "409": { "description": "El usuario ya seguía al canal." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      },
+      "get": {
+        "tags": ["subscriptions"],
+        "summary": "Listar canales seguidos por un usuario.",
+        "description": "RF-A1: Lista los canales seguidos por un usuario.",
+        "operationId": "listSubscriptions",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/PageSizeParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suscripciones del usuario.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SubscriptionPage" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/subscriptions/{subscriptionId}": {
+      "delete": {
+        "tags": ["subscriptions"],
+        "summary": "Dejar de seguir un canal.",
+        "description": "RF-A1: Permite dejar de seguir un canal.",
+        "operationId": "unsubscribe",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Suscripción eliminada." },
+          "404": { "description": "Suscripción no encontrada." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/channels/{channelId}/subscribers/count": {
+      "get": {
+        "tags": ["subscriptions"],
+        "summary": "Conteo de suscriptores de un canal.",
+        "description": "RF-A1: Devuelve el conteo de suscriptores de un canal.",
+        "operationId": "getSubscriberCount",
+        "parameters": [
+          {
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conteo de suscriptores.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channelId": { "type": "string" },
+                    "count": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reactions": {
+      "post": {
+        "tags": ["reactions"],
+        "summary": "Expresar reacción a un contenido.",
+        "description": "RF-A2: Permite expresar reacción (like, dislike u otro).",
+        "operationId": "createReaction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReactionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reacción registrada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Reaction" }
+              }
+            }
+          },
+          "400": { "description": "Datos inválidos." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/reactions/{reactionId}": {
+      "patch": {
+        "tags": ["reactions"],
+        "summary": "Cambiar una reacción.",
+        "operationId": "updateReaction",
+        "parameters": [
+          {
+            "name": "reactionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["like", "dislike"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reacción actualizada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Reaction" }
+              }
+            }
+          },
+          "404": { "description": "Reacción no encontrada." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      },
+      "delete": {
+        "tags": ["reactions"],
+        "summary": "Eliminar una reacción.",
+        "operationId": "deleteReaction",
+        "parameters": [
+          {
+            "name": "reactionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Reacción eliminada." },
+          "404": { "description": "Reacción no encontrada." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/content/{catalogItemId}/reactions/totals": {
+      "get": {
+        "tags": ["reactions"],
+        "summary": "Totales agregados de reacciones por contenido.",
+        "description": "RF-A2: Expone totales agregados de reacciones por contenido.",
+        "operationId": "getReactionTotals",
+        "parameters": [
+          {
+            "name": "catalogItemId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Totales de reacciones.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReactionTotals" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/comments": {
+      "post": {
+        "tags": ["comments"],
+        "summary": "Publicar comentario.",
+        "description": "RF-A3: Permite publicar comentarios en un contenido o responder a un comentario (threads).",
+        "operationId": "createComment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CommentCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comentario creado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Comment" }
+              }
+            }
+          },
+          "400": { "description": "Datos inválidos." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/content/{catalogItemId}/comments": {
+      "get": {
+        "tags": ["comments"],
+        "summary": "Listar comentarios de un contenido.",
+        "description": "RF-A3: Permite listar comentarios con orden configurable.",
+        "operationId": "listComments",
+        "parameters": [
+          {
+            "name": "catalogItemId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["recent", "top"],
+              "default": "top"
+            }
+          },
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/PageSizeParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de comentarios.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CommentPage" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/comments/{commentId}": {
+      "patch": {
+        "tags": ["comments"],
+        "summary": "Editar comentario propio.",
+        "description": "RF-A3: Permite al autor editar su comentario.",
+        "operationId": "updateComment",
+        "parameters": [ { "$ref": "#/components/parameters/CommentIdParam" } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comentario actualizado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Comment" }
+              }
+            }
+          },
+          "403": { "description": "Solo el autor puede editar." },
+          "404": { "description": "Comentario no encontrado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      },
+      "delete": {
+        "tags": ["comments"],
+        "summary": "Eliminar comentario propio.",
+        "description": "RF-A3: Permite al autor eliminar su comentario.",
+        "operationId": "deleteComment",
+        "parameters": [ { "$ref": "#/components/parameters/CommentIdParam" } ],
+        "responses": {
+          "204": { "description": "Comentario eliminado." },
+          "403": { "description": "Solo el autor puede eliminar." },
+          "404": { "description": "Comentario no encontrado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/comments/{commentId}/pin": {
+      "post": {
+        "tags": ["comments"],
+        "summary": "Fijar comentario destacado.",
+        "description": "RF-A3: Permite al creador fijar un comentario destacado.",
+        "operationId": "pinComment",
+        "parameters": [ { "$ref": "#/components/parameters/CommentIdParam" } ],
+        "responses": {
+          "200": {
+            "description": "Comentario fijado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Comment" }
+              }
+            }
+          },
+          "403": { "description": "Solo el creador del canal puede fijar." },
+          "404": { "description": "Comentario no encontrado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/comments/{commentId}/report": {
+      "post": {
+        "tags": ["comments"],
+        "summary": "Reportar comentario inapropiado.",
+        "description": "RF-A3: Permite reportar comentarios inapropiados.",
+        "operationId": "reportComment",
+        "parameters": [ { "$ref": "#/components/parameters/CommentIdParam" } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason"],
+                "properties": {
+                  "reason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": { "description": "Reporte aceptado." },
+          "404": { "description": "Comentario no encontrado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["notifications"],
+        "summary": "Listar notificaciones del usuario.",
+        "description": "RF-A4: Lista las notificaciones de un usuario.",
+        "operationId": "listNotifications",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "unreadOnly",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean", "default": false }
+          },
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/PageSizeParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notificaciones.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotificationPage" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/notifications/{notificationId}/read": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Marcar notificación como leída.",
+        "description": "RF-A4: Permite marcar una notificación como leída.",
+        "operationId": "markNotificationRead",
+        "parameters": [
+          {
+            "name": "notificationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Notificación marcada como leída." },
+          "404": { "description": "Notificación no encontrada." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/notifications/preferences": {
+      "get": {
+        "tags": ["notifications"],
+        "summary": "Obtener preferencias de notificación.",
+        "operationId": "getNotificationPreferences",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preferencias actuales.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotificationPreferences" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      },
+      "put": {
+        "tags": ["notifications"],
+        "summary": "Actualizar preferencias de notificación.",
+        "description": "RF-A4: Permite configurar preferencias de notificación.",
+        "operationId": "updateNotificationPreferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NotificationPreferences" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferencias actualizadas.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotificationPreferences" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/users/{userId}/history": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Consultar historial de visualización.",
+        "description": "RF-A5: Devuelve el historial de visualización del usuario.",
+        "operationId": "getWatchHistory",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserIdParam" },
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/PageSizeParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historial.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HistoryPage" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      },
+      "post": {
+        "tags": ["history"],
+        "summary": "Registrar entrada en historial.",
+        "description": "RF-A5: Registra qué vio el usuario y cuándo. Normalmente disparado por el evento de sesión completada de Publicación.",
+        "operationId": "addHistoryEntry",
+        "parameters": [ { "$ref": "#/components/parameters/UserIdParam" } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/HistoryEntryCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Entrada agregada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HistoryEntry" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["viewer", "service"] } ]
+      },
+      "delete": {
+        "tags": ["history"],
+        "summary": "Borrar historial.",
+        "description": "RF-A5: Permite borrar el historial por privacidad.",
+        "operationId": "clearWatchHistory",
+        "parameters": [ { "$ref": "#/components/parameters/UserIdParam" } ],
+        "responses": {
+          "204": { "description": "Historial borrado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/users/{userId}/watch-later": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Listar contenido guardado para ver después.",
+        "operationId": "listWatchLater",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserIdParam" },
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/PageSizeParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de pendientes.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WatchLaterPage" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      },
+      "post": {
+        "tags": ["history"],
+        "summary": "Guardar contenido para ver después.",
+        "description": "RF-A5: Permite guardar contenido para ver después.",
+        "operationId": "addToWatchLater",
+        "parameters": [ { "$ref": "#/components/parameters/UserIdParam" } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["catalogItemId"],
+                "properties": {
+                  "catalogItemId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Guardado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/channels/{channelId}/community-posts": {
+      "post": {
+        "tags": ["community"],
+        "summary": "Crear post de comunidad.",
+        "description": "RF-A6: Permite al creador publicar posts de comunidad (texto, encuestas, imágenes) independientes de un video.",
+        "operationId": "createCommunityPost",
+        "parameters": [
+          {
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CommunityPostCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post creado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CommunityPost" }
+              }
+            }
+          }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      },
+      "get": {
+        "tags": ["community"],
+        "summary": "Listar posts de comunidad de un canal.",
+        "operationId": "listCommunityPosts",
+        "parameters": [
+          {
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/PageSizeParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Posts del canal.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CommunityPostPage" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/community-posts/{postId}/interactions": {
+      "post": {
+        "tags": ["community"],
+        "summary": "Interactuar con un post de comunidad.",
+        "description": "RF-A6: Los usuarios pueden interactuar (comentar, reaccionar) con esos posts.",
+        "operationId": "interactWithCommunityPost",
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CommunityInteractionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Interacción registrada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CommunityInteraction" }
+              }
+            }
+          },
+          "404": { "description": "Post no encontrado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "UserIdParam": {
+        "name": "userId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "CommentIdParam": {
+        "name": "commentId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "PageParam": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "PageSizeParam": {
+        "name": "pageSize",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      }
+    },
+    "schemas": {
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": { "type": "string" },
+          "userId": { "type": "string" },
+          "channelId": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SubscriptionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Subscription" }
+          },
+          "page": { "type": "integer" },
+          "pageSize": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "ReactionRequest": {
+        "type": "object",
+        "required": ["userId", "catalogItemId", "type"],
+        "properties": {
+          "userId": { "type": "string" },
+          "catalogItemId": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["like", "dislike"]
+          }
+        }
+      },
+      "Reaction": {
+        "type": "object",
+        "properties": {
+          "reactionId": { "type": "string" },
+          "userId": { "type": "string" },
+          "catalogItemId": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["like", "dislike"]
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ReactionTotals": {
+        "type": "object",
+        "properties": {
+          "catalogItemId": { "type": "string" },
+          "likes": { "type": "integer" },
+          "dislikes": { "type": "integer" }
+        }
+      },
+      "CommentCreateRequest": {
+        "type": "object",
+        "required": ["userId", "catalogItemId", "text"],
+        "properties": {
+          "userId": { "type": "string" },
+          "catalogItemId": { "type": "string" },
+          "parentCommentId": {
+            "type": "string",
+            "description": "Para responder a un comentario (threads)."
+          },
+          "text": { "type": "string" }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "commentId": { "type": "string" },
+          "userId": { "type": "string" },
+          "catalogItemId": { "type": "string" },
+          "parentCommentId": { "type": "string" },
+          "text": { "type": "string" },
+          "pinned": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CommentPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Comment" }
+          },
+          "page": { "type": "integer" },
+          "pageSize": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "notificationId": { "type": "string" },
+          "userId": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["new_video", "comment_reply", "channel_post", "system"]
+          },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "deepLink": { "type": "string" },
+          "read": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NotificationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Notification" }
+          },
+          "page": { "type": "integer" },
+          "pageSize": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "newVideoFromSubscriptions": { "type": "boolean" },
+          "commentReplies": { "type": "boolean" },
+          "channelCommunityPosts": { "type": "boolean" },
+          "emailEnabled": { "type": "boolean" },
+          "pushEnabled": { "type": "boolean" }
+        }
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "properties": {
+          "historyEntryId": { "type": "string" },
+          "userId": { "type": "string" },
+          "catalogItemId": { "type": "string" },
+          "watchedSeconds": { "type": "integer" },
+          "viewedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "HistoryEntryCreateRequest": {
+        "type": "object",
+        "required": ["catalogItemId"],
+        "properties": {
+          "catalogItemId": { "type": "string" },
+          "watchedSeconds": { "type": "integer" },
+          "viewedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "HistoryPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/HistoryEntry" }
+          },
+          "page": { "type": "integer" },
+          "pageSize": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "WatchLaterPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "catalogItemId": { "type": "string" },
+                "addedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "page": { "type": "integer" },
+          "pageSize": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "CommunityPostCreateRequest": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["text", "poll", "image"]
+          },
+          "text": { "type": "string" },
+          "imageUrl": { "type": "string" },
+          "pollOptions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "CommunityPost": {
+        "type": "object",
+        "properties": {
+          "postId": { "type": "string" },
+          "channelId": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["text", "poll", "image"]
+          },
+          "text": { "type": "string" },
+          "imageUrl": { "type": "string" },
+          "pollOptions": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CommunityPostPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityPost" }
+          },
+          "page": { "type": "integer" },
+          "pageSize": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "CommunityInteractionRequest": {
+        "type": "object",
+        "required": ["userId", "type"],
+        "properties": {
+          "userId": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["like", "comment", "pollVote"]
+          },
+          "text": { "type": "string" },
+          "pollOptionIndex": { "type": "integer" }
+        }
+      },
+      "CommunityInteraction": {
+        "type": "object",
+        "properties": {
+          "interactionId": { "type": "string" },
+          "postId": { "type": "string" },
+          "userId": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["like", "comment", "pollVote"]
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

@@ -1,0 +1,763 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "YouTube - Publicación y distribución de contenido",
+    "description": "## Responsabilidad\n\nGestionar el **ciclo de vida técnico del video**: subida, procesamiento, almacenamiento, reproducción y transmisión en vivo.\n\n## Alcance\n\n- **Sí:** upload, transcoding, streaming, sesiones de playback, live.\n- **No:** título del video, comentarios, recomendaciones, pagos, campañas publicitarias.\n\nEn este contexto el video se entiende como **archivo/stream**, no como producto editorial. No decide si el video es visible al público ni gestiona metadata visible (título, descripción, tags).\n\n## Integraciones\n\n- Emite eventos: contenido subido, procesamiento finalizado, asset listo para publicación editorial, sesión de reproducción completada, transmisión en vivo iniciada/finalizada.",
+    "contact": {
+      "email": "publicacion@youtube.example.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api/v1/publicacion"
+    }
+  ],
+  "tags": [
+    {
+      "name": "uploads",
+      "description": "Gestión de subida de videos (RF-P1)"
+    },
+    {
+      "name": "processing",
+      "description": "Procesamiento técnico de videos (RF-P2)"
+    },
+    {
+      "name": "playback",
+      "description": "Reproducción y sesiones de visualización (RF-P3)"
+    },
+    {
+      "name": "live",
+      "description": "Transmisiones en vivo (RF-P4)"
+    },
+    {
+      "name": "assets",
+      "description": "Consulta de assets técnicos (RF-P5)"
+    }
+  ],
+  "paths": {
+    "/uploads": {
+      "post": {
+        "tags": ["uploads"],
+        "summary": "Iniciar una subida de video.",
+        "description": "RF-P1: Permite que un creador inicie una subida de video. Devuelve un identificador de subida y la información necesaria para enviar el archivo.",
+        "operationId": "initiateUpload",
+        "requestBody": {
+          "description": "Datos iniciales de la subida.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UploadInitRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subida creada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Upload" }
+              }
+            }
+          },
+          "400": { "description": "Datos inválidos." },
+          "401": { "description": "No autenticado." },
+          "403": { "description": "Sin permisos para subir." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/uploads/{uploadId}": {
+      "get": {
+        "tags": ["uploads"],
+        "summary": "Consultar estado de progreso de una subida.",
+        "description": "RF-P1: Permite consultar el estado de progreso de la subida.",
+        "operationId": "getUpload",
+        "parameters": [
+          { "$ref": "#/components/parameters/UploadIdParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado de la subida.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Upload" }
+              }
+            }
+          },
+          "404": { "description": "Subida no encontrada." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      },
+      "delete": {
+        "tags": ["uploads"],
+        "summary": "Cancelar una subida en curso.",
+        "description": "RF-P1: Permite cancelar una subida en curso.",
+        "operationId": "cancelUpload",
+        "parameters": [
+          { "$ref": "#/components/parameters/UploadIdParam" }
+        ],
+        "responses": {
+          "204": { "description": "Subida cancelada." },
+          "404": { "description": "Subida no encontrada." },
+          "409": { "description": "La subida ya finalizó." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/uploads/{uploadId}/chunks": {
+      "put": {
+        "tags": ["uploads"],
+        "summary": "Subir un fragmento o el archivo completo.",
+        "description": "RF-P1: Permite subir el archivo de forma completa o por partes (chunked upload).",
+        "operationId": "uploadChunk",
+        "parameters": [
+          { "$ref": "#/components/parameters/UploadIdParam" },
+          {
+            "name": "chunkIndex",
+            "in": "query",
+            "description": "Índice del fragmento. Omitir si es subida en una sola pieza.",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 0 }
+          },
+          {
+            "name": "totalChunks",
+            "in": "query",
+            "description": "Número total de fragmentos esperados.",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": { "type": "string", "format": "binary" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fragmento recibido.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Upload" }
+              }
+            }
+          },
+          "400": { "description": "Fragmento inválido." },
+          "404": { "description": "Subida no encontrada." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/uploads/{uploadId}/complete": {
+      "post": {
+        "tags": ["uploads"],
+        "summary": "Validar y completar la subida.",
+        "description": "RF-P1: Valida que la subida finalizó correctamente antes de iniciar el procesamiento (RF-P2).",
+        "operationId": "completeUpload",
+        "parameters": [
+          { "$ref": "#/components/parameters/UploadIdParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subida validada. Inicia procesamiento automáticamente.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VideoAsset" }
+              }
+            }
+          },
+          "400": { "description": "La subida no se puede validar (faltan fragmentos o checksum inválido)." },
+          "404": { "description": "Subida no encontrada." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/assets": {
+      "get": {
+        "tags": ["assets"],
+        "summary": "Listar assets técnicos de un creador.",
+        "description": "RF-P5: Lista los contenidos técnicos asociados a un creador.",
+        "operationId": "listAssets",
+        "parameters": [
+          {
+            "name": "creatorId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/PageSizeParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listado de assets.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VideoAssetPage" }
+              }
+            }
+          },
+          "401": { "description": "No autenticado." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/assets/{videoAssetId}": {
+      "get": {
+        "tags": ["assets"],
+        "summary": "Consultar el detalle técnico de un asset.",
+        "description": "RF-P5: Devuelve duración, formatos disponibles, estado, etc.",
+        "operationId": "getAsset",
+        "parameters": [
+          { "$ref": "#/components/parameters/VideoAssetIdParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalle del asset.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VideoAsset" }
+              }
+            }
+          },
+          "404": { "description": "Asset no encontrado." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/assets/{videoAssetId}/processing": {
+      "get": {
+        "tags": ["processing"],
+        "summary": "Consultar estado de procesamiento.",
+        "description": "RF-P2: Expone el estado del procesamiento (pendiente, en curso, completado, fallido).",
+        "operationId": "getProcessingStatus",
+        "parameters": [
+          { "$ref": "#/components/parameters/VideoAssetIdParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado del procesamiento.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProcessingJob" }
+              }
+            }
+          },
+          "404": { "description": "Asset no encontrado." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/assets/{videoAssetId}/processing/retry": {
+      "post": {
+        "tags": ["processing"],
+        "summary": "Reintentar un procesamiento fallido.",
+        "description": "RF-P2: Permite reintentar un procesamiento fallido.",
+        "operationId": "retryProcessing",
+        "parameters": [
+          { "$ref": "#/components/parameters/VideoAssetIdParam" }
+        ],
+        "responses": {
+          "202": {
+            "description": "Reintento aceptado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProcessingJob" }
+              }
+            }
+          },
+          "404": { "description": "Asset no encontrado." },
+          "409": { "description": "El procesamiento no está en estado fallido." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/playback/{videoAssetId}/manifest": {
+      "get": {
+        "tags": ["playback"],
+        "summary": "Obtener manifiesto de reproducción.",
+        "description": "RF-P3: Devuelve la información necesaria para reproducir un video en un dispositivo dado, adaptada a dispositivo, ancho de banda y región.",
+        "operationId": "getPlaybackManifest",
+        "parameters": [
+          { "$ref": "#/components/parameters/VideoAssetIdParam" },
+          {
+            "name": "device",
+            "in": "query",
+            "description": "Tipo de dispositivo (mobile, web, tv, etc.).",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "bandwidthKbps",
+            "in": "query",
+            "description": "Ancho de banda estimado del cliente.",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Código ISO de país.",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Manifiesto de reproducción.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PlaybackManifest" }
+              }
+            }
+          },
+          "404": { "description": "Asset no encontrado o no reproducible." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [
+          { "bearerAuth": ["viewer"] },
+          { "apiKey": [] }
+        ]
+      }
+    },
+    "/playback/sessions": {
+      "post": {
+        "tags": ["playback"],
+        "summary": "Registrar inicio de sesión de reproducción.",
+        "description": "RF-P3: Registra el inicio de una sesión de reproducción.",
+        "operationId": "startPlaybackSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PlaybackSessionStartRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sesión registrada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PlaybackSession" }
+              }
+            }
+          },
+          "400": { "description": "Datos inválidos." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/playback/sessions/{sessionId}/progress": {
+      "post": {
+        "tags": ["playback"],
+        "summary": "Actualizar progreso de la sesión.",
+        "description": "RF-P3: Reporta progreso de reproducción y métricas técnicas (duración vista, calidad utilizada, interrupciones).",
+        "operationId": "reportPlaybackProgress",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PlaybackProgressUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Progreso registrado." },
+          "404": { "description": "Sesión no encontrada." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/playback/sessions/{sessionId}/complete": {
+      "post": {
+        "tags": ["playback"],
+        "summary": "Marcar fin de sesión de reproducción.",
+        "description": "RF-P3: Marca la sesión como finalizada y emite el evento de sesión completada.",
+        "operationId": "completePlaybackSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sesión finalizada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PlaybackSession" }
+              }
+            }
+          },
+          "404": { "description": "Sesión no encontrada." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["viewer"] } ]
+      }
+    },
+    "/live/streams": {
+      "post": {
+        "tags": ["live"],
+        "summary": "Configurar una transmisión en vivo.",
+        "description": "RF-P4: Permite al creador configurar una transmisión en vivo y obtener los datos de conexión.",
+        "operationId": "createLiveStream",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LiveStreamRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transmisión creada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LiveStream" }
+              }
+            }
+          },
+          "400": { "description": "Datos inválidos." },
+          "default": { "description": "Error inesperado." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/live/streams/{streamId}": {
+      "get": {
+        "tags": ["live"],
+        "summary": "Consultar transmisión en vivo.",
+        "operationId": "getLiveStream",
+        "parameters": [
+          { "$ref": "#/components/parameters/StreamIdParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Datos de la transmisión.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LiveStream" }
+              }
+            }
+          },
+          "404": { "description": "Transmisión no encontrada." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/live/streams/{streamId}/start": {
+      "post": {
+        "tags": ["live"],
+        "summary": "Iniciar la transmisión.",
+        "description": "RF-P4: Inicia la transmisión en vivo.",
+        "operationId": "startLiveStream",
+        "parameters": [ { "$ref": "#/components/parameters/StreamIdParam" } ],
+        "responses": {
+          "200": {
+            "description": "Transmisión iniciada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LiveStream" }
+              }
+            }
+          },
+          "404": { "description": "Transmisión no encontrada." },
+          "409": { "description": "La transmisión ya está activa o finalizada." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/live/streams/{streamId}/pause": {
+      "post": {
+        "tags": ["live"],
+        "summary": "Pausar la transmisión.",
+        "operationId": "pauseLiveStream",
+        "parameters": [ { "$ref": "#/components/parameters/StreamIdParam" } ],
+        "responses": {
+          "200": {
+            "description": "Transmisión pausada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LiveStream" }
+              }
+            }
+          },
+          "404": { "description": "Transmisión no encontrada." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    },
+    "/live/streams/{streamId}/end": {
+      "post": {
+        "tags": ["live"],
+        "summary": "Finalizar la transmisión.",
+        "description": "RF-P4: Finaliza la transmisión y opcionalmente genera una versión grabada (VOD).",
+        "operationId": "endLiveStream",
+        "parameters": [
+          { "$ref": "#/components/parameters/StreamIdParam" },
+          {
+            "name": "generateVod",
+            "in": "query",
+            "description": "Si es true, genera una versión grabada reutilizable como VOD.",
+            "required": false,
+            "schema": { "type": "boolean", "default": true }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transmisión finalizada.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LiveStream" }
+              }
+            }
+          },
+          "404": { "description": "Transmisión no encontrada." }
+        },
+        "security": [ { "bearerAuth": ["creator"] } ]
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "UploadIdParam": {
+        "name": "uploadId",
+        "in": "path",
+        "required": true,
+        "description": "Identificador único de la subida.",
+        "schema": { "type": "string" }
+      },
+      "VideoAssetIdParam": {
+        "name": "videoAssetId",
+        "in": "path",
+        "required": true,
+        "description": "Identificador único del asset técnico.",
+        "schema": { "type": "string" }
+      },
+      "StreamIdParam": {
+        "name": "streamId",
+        "in": "path",
+        "required": true,
+        "description": "Identificador único de la transmisión en vivo.",
+        "schema": { "type": "string" }
+      },
+      "PageParam": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "PageSizeParam": {
+        "name": "pageSize",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      }
+    },
+    "schemas": {
+      "UploadInitRequest": {
+        "type": "object",
+        "required": ["creatorId", "fileName", "sizeBytes"],
+        "properties": {
+          "creatorId": { "type": "string" },
+          "fileName": { "type": "string" },
+          "sizeBytes": { "type": "integer", "format": "int64" },
+          "mimeType": { "type": "string", "example": "video/mp4" },
+          "chunked": { "type": "boolean", "default": false }
+        }
+      },
+      "Upload": {
+        "type": "object",
+        "properties": {
+          "uploadId": { "type": "string" },
+          "creatorId": { "type": "string" },
+          "fileName": { "type": "string" },
+          "sizeBytes": { "type": "integer", "format": "int64" },
+          "bytesReceived": { "type": "integer", "format": "int64" },
+          "progressPercent": { "type": "number", "format": "float" },
+          "status": {
+            "type": "string",
+            "enum": ["initiated", "uploading", "completed", "validated", "cancelled", "failed"]
+          },
+          "uploadUrl": {
+            "type": "string",
+            "description": "URL a la que se debe enviar el archivo o los fragmentos."
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "VideoAsset": {
+        "type": "object",
+        "description": "Representación técnica del video (archivo/stream). No incluye metadata editorial.",
+        "properties": {
+          "videoAssetId": { "type": "string" },
+          "creatorId": { "type": "string" },
+          "durationSeconds": { "type": "integer" },
+          "status": {
+            "type": "string",
+            "enum": ["uploaded", "processing", "ready", "failed"]
+          },
+          "availableQualities": {
+            "type": "array",
+            "items": { "type": "string", "example": "1080p" }
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "readyAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "VideoAssetPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/VideoAsset" }
+          },
+          "page": { "type": "integer" },
+          "pageSize": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "ProcessingJob": {
+        "type": "object",
+        "properties": {
+          "videoAssetId": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "in_progress", "completed", "failed"]
+          },
+          "qualitiesGenerated": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "errorMessage": { "type": "string" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "finishedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PlaybackManifest": {
+        "type": "object",
+        "properties": {
+          "videoAssetId": { "type": "string" },
+          "format": { "type": "string", "example": "hls" },
+          "manifestUrl": { "type": "string" },
+          "renditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quality": { "type": "string" },
+                "bitrateKbps": { "type": "integer" },
+                "url": { "type": "string" }
+              }
+            }
+          },
+          "region": { "type": "string" }
+        }
+      },
+      "PlaybackSessionStartRequest": {
+        "type": "object",
+        "required": ["videoAssetId"],
+        "properties": {
+          "videoAssetId": { "type": "string" },
+          "userId": { "type": "string" },
+          "device": { "type": "string" },
+          "region": { "type": "string" }
+        }
+      },
+      "PlaybackSession": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "videoAssetId": { "type": "string" },
+          "userId": { "type": "string" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "endedAt": { "type": "string", "format": "date-time" },
+          "watchedSeconds": { "type": "integer" },
+          "qualityUsed": { "type": "string" },
+          "interruptions": { "type": "integer" },
+          "status": {
+            "type": "string",
+            "enum": ["active", "completed", "aborted"]
+          }
+        }
+      },
+      "PlaybackProgressUpdate": {
+        "type": "object",
+        "properties": {
+          "positionSeconds": { "type": "integer" },
+          "watchedSeconds": { "type": "integer" },
+          "qualityUsed": { "type": "string" },
+          "interruptions": { "type": "integer" }
+        }
+      },
+      "LiveStreamRequest": {
+        "type": "object",
+        "required": ["creatorId"],
+        "properties": {
+          "creatorId": { "type": "string" },
+          "title": { "type": "string", "description": "Solo referencia técnica; el título editorial vive en Catálogo." },
+          "scheduledStart": { "type": "string", "format": "date-time" }
+        }
+      },
+      "LiveStream": {
+        "type": "object",
+        "properties": {
+          "streamId": { "type": "string" },
+          "creatorId": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["scheduled", "live", "paused", "ended"]
+          },
+          "ingestUrl": { "type": "string", "description": "URL RTMP/SRT para emitir desde software externo (OBS, etc.)." },
+          "streamKey": { "type": "string" },
+          "playbackUrl": { "type": "string" },
+          "vodAssetId": { "type": "string", "description": "Asset generado a partir de la grabación, si se solicitó." },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "endedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKey": {
+        "type": "apiKey",
+        "name": "X-API-Key",
+        "in": "header"
+      }
+    }
+  }
+}
