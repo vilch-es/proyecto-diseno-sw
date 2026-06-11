@@ -1,0 +1,816 @@
+openapi: 3.1.0
+
+info:
+  title: Descubrimiento y personalización
+  version: 1.0.0
+  description: |
+    Gestiona **cómo los espectadores encuentran contenido**: búsqueda, feed de inicio
+    personalizado, videos relacionados y contenido en tendencia (trending).
+
+    Este contexto **no almacena contenido ni metadata original** — consume señales
+    de otros contextos (reproducción, likes, suscripciones, metadata editorial) y
+    las combina para producir resultados ordenados y personalizados. Su unidad de
+    trabajo es el **ranking**, no el video en sí.
+
+    No gestiona comentarios, likes ni suscripciones (eso es de *Audiencia*), ni
+    decide visibilidad o derechos de un video (eso es de *Catálogo*). Solo decide
+    **en qué orden y a quién** se le muestra contenido ya publicado y visible.
+
+    ## Actores
+    - **viewer** — espectador autenticado o anónimo
+    - **system** — servicios internos que envían señales de interacción
+
+    ## Eventos que consume
+    - `playback.session.completed` (de Publicación) — alimenta señales de watch time
+    - `content.published` (de Catálogo) — indica que un video es elegible para indexar
+    - `engagement.signal` (de Audiencia) — likes, comentarios, suscripciones
+
+    ## Eventos que emite
+    - `recommendation.served` — un set de recomendaciones fue mostrado a un usuario
+    - `search.performed` — una búsqueda fue ejecutada
+
+servers:
+  - url: https://api.youtube-clone.com/discovery/v1
+    description: Servidor de producción
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: search
+    description: Búsqueda de contenido
+  - name: feed
+    description: Feed de inicio personalizado
+  - name: related
+    description: Videos relacionados y recomendaciones
+  - name: trending
+    description: Contenido en tendencia
+  - name: signals
+    description: Ingesta de señales de interacción desde otros contextos
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PATHS
+# ──────────────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Search ───────────────────────────────────────────────────────────────────
+
+  /search:
+    get:
+      summary: Buscar contenido
+      description: >
+        Ejecuta una búsqueda por texto libre sobre videos y/o canales.
+        Permite filtrar por tipo, fecha y duración, y ordenar por relevancia,
+        fecha o popularidad. Emite el evento `search.performed` para
+        retroalimentar el modelo de ranking.
+      operationId: search
+      tags: [search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Texto de búsqueda
+          schema:
+            type: string
+            example: receta de pastel de choclo
+        - name: type
+          in: query
+          required: false
+          description: Tipo de resultado a buscar
+          schema:
+            type: string
+            enum: [video, channel, all]
+            default: all
+        - name: sortBy
+          in: query
+          required: false
+          description: Criterio de ordenamiento de resultados
+          schema:
+            type: string
+            enum: [relevance, date, popularity]
+            default: relevance
+        - name: publishedAfter
+          in: query
+          required: false
+          description: Filtrar videos publicados después de esta fecha
+          schema:
+            type: string
+            format: date-time
+        - name: durationMin
+          in: query
+          required: false
+          description: Duración mínima en segundos (solo aplica a videos)
+          schema:
+            type: integer
+        - name: durationMax
+          in: query
+          required: false
+          description: Duración máxima en segundos (solo aplica a videos)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: cursor
+          in: query
+          required: false
+          description: Cursor de paginación (opaco)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resultados de búsqueda ordenados según `sortBy`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResultPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /search/suggestions:
+    get:
+      summary: Obtener sugerencias de búsqueda
+      description: >
+        Retorna sugerencias de autocompletado a medida que el usuario escribe,
+        basadas en búsquedas populares y coincidencia de prefijo. Pensado para
+        respuestas de baja latencia (no aplica filtros ni ordenamiento).
+      operationId: getSearchSuggestions
+      tags: [search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Texto parcial ingresado por el usuario
+          schema:
+            type: string
+            example: receta de past
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 8
+            maximum: 15
+      responses:
+        '200':
+          description: Lista de sugerencias ordenadas por popularidad
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: string
+                    example: ["receta de pastel de choclo", "receta de pastel de papa"]
+
+  # ── Feed ─────────────────────────────────────────────────────────────────────
+
+  /feed/home:
+    get:
+      summary: Obtener feed de inicio personalizado
+      description: >
+        Retorna una lista ordenada de videos recomendados para el usuario,
+        basada en su historial de reproducción, suscripciones e intereses.
+        Si el usuario no está autenticado, retorna un feed genérico basado
+        en popularidad general. Emite `recommendation.served`.
+      operationId: getHomeFeed
+      tags: [feed]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Feed de inicio personalizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /feed/home/refresh:
+    post:
+      summary: Forzar recálculo del feed de inicio
+      description: >
+        Invalida el feed cacheado del usuario y dispara un recálculo inmediato
+        considerando las señales más recientes. Pensado para casos donde el
+        usuario acaba de realizar una acción significativa (ej. nueva suscripción).
+      operationId: refreshHomeFeed
+      tags: [feed]
+      responses:
+        '202':
+          description: Recálculo aceptado; el próximo GET reflejará el nuevo feed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Related / recommendations ───────────────────────────────────────────────
+
+  /videos/{videoId}/related:
+    get:
+      summary: Obtener videos relacionados
+      description: >
+        Retorna una lista de videos similares o relacionados al video indicado,
+        usados típicamente en la barra lateral de "siguiente video". La similitud
+        se calcula por metadata, co-visualización y señales de engagement.
+      operationId: getRelatedVideos
+      tags: [related]
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          description: ID del VideoAsset/contenido de referencia
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            maximum: 30
+      responses:
+        '200':
+          description: Lista de videos relacionados ordenados por relevancia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSet'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /videos/{videoId}/autoplay-next:
+    get:
+      summary: Obtener siguiente video sugerido para autoplay
+      description: >
+        Retorna un único video recomendado como siguiente en la cola de
+        reproducción automática, personalizado si el usuario está autenticado.
+      operationId: getAutoplayNext
+      tags: [related]
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Video sugerido para autoplay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Trending ─────────────────────────────────────────────────────────────────
+
+  /explore:
+    get:
+      summary: Explorar contenido por categoría
+      description: >
+        Retorna contenido organizado por categoría/tema, sin requerir que sea
+        necesariamente "tendencia". Pensado para navegación temática general
+        (ej. música, gaming, deportes). Si no se especifica categoría, retorna
+        un listado de categorías disponibles con una muestra de contenido.
+      operationId: exploreContent
+      tags: [trending]
+      parameters:
+        - name: category
+          in: query
+          required: false
+          description: Categoría a explorar. Si se omite, retorna todas las categorías disponibles.
+          schema:
+            type: string
+            example: gaming
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        '200':
+          description: Contenido organizado por categoría
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExplorePage'
+
+  /trending:
+    get:
+      summary: Obtener contenido en tendencia
+      description: >
+        Retorna los videos con mayor crecimiento de actividad reciente
+        (reproducciones, likes, comentarios) en una región y categoría dadas.
+        Se recalcula periódicamente, no en tiempo real estricto.
+      operationId: getTrending
+      tags: [trending]
+      parameters:
+        - name: region
+          in: query
+          required: false
+          description: Código de país ISO 3166-1 alpha-2
+          schema:
+            type: string
+            example: CL
+            default: GLOBAL
+        - name: category
+          in: query
+          required: false
+          description: Categoría de contenido (opcional)
+          schema:
+            type: string
+            example: musica
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 25
+            maximum: 50
+      responses:
+        '200':
+          description: Lista de contenido en tendencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendingList'
+
+  # ── Signals (internal ingestion) ────────────────────────────────────────────
+
+  /feed/impressions:
+    post:
+      summary: Registrar impresiones de feed
+      description: >
+        El cliente reporta qué ítems fueron efectivamente *vistos* por el
+        usuario dentro de un feed (home, related o trending). Esta señal
+        alimenta el perfil de intereses del usuario, distinta de un click.
+      operationId: recordImpressions
+      tags: [signals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpressionBatchRequest'
+      responses:
+        '202':
+          description: Impresiones recibidas y encoladas para procesamiento
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /feed/clicks:
+    post:
+      summary: Registrar click en un ítem recomendado
+      description: >
+        El cliente reporta que el usuario hizo click en un ítem mostrado en
+        un feed, búsqueda o sección de relacionados. Es la señal de interés
+        más fuerte que una impresión, y actualiza el perfil de intereses
+        con mayor peso.
+      operationId: recordClick
+      tags: [signals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClickRequest'
+      responses:
+        '202':
+          description: Click registrado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/{userId}/interest-profile:
+    get:
+      summary: Consultar perfil de intereses de un usuario
+      description: >
+        Retorna las categorías/temas de mayor afinidad del usuario, calculadas
+        a partir de su historial de reproducción, impresiones y clicks. Usado
+        internamente para personalizar `/feed/home` y `/videos/{id}/related`,
+        y expuesto también para fines de transparencia (ej. "por qué veo esto").
+      operationId: getUserInterestProfile
+      tags: [signals]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Perfil de intereses del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInterestProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /signals:
+    post:
+      summary: Registrar una señal de interacción
+      description: >
+        Endpoint interno usado por otros contextos (Publicación, Audiencia,
+        Catálogo) para reportar eventos relevantes para el ranking: una
+        sesión de reproducción finalizada, un like, una nueva suscripción,
+        o la publicación de un video nuevo. No está pensado para ser
+        llamado por clientes finales.
+      operationId: ingestSignal
+      tags: [signals]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestSignalRequest'
+      responses:
+        '202':
+          description: Señal recibida y encolada para procesamiento
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+# ──────────────────────────────────────────────────────────────────────────────
+# COMPONENTS
+# ──────────────────────────────────────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Token JWT que identifica al actor. El campo `role` del payload
+        determina el nivel de acceso: `viewer` o `system`.
+
+  responses:
+    BadRequest:
+      description: Solicitud inválida o parámetros incorrectos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Token ausente o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: El actor no tiene permiso para esta operación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # ── Errores ────────────────────────────────────────────────────────────────
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: RESOURCE_NOT_FOUND
+        message:
+          type: string
+          example: El recurso solicitado no existe.
+
+    # ── Resultado de contenido (vista liviana, no editorial) ────────────────────
+
+    ContentSummary:
+      type: object
+      description: >
+        Representación liviana de un video para fines de listado. La metadata
+        editorial completa (título, descripción, thumbnail) se obtiene del
+        contexto de Catálogo; aquí solo se referencia el ID y datos mínimos
+        de display cacheados para evitar llamadas adicionales.
+      required: [kind, videoId, cachedTitle, durationSeconds]
+      properties:
+        kind:
+          type: string
+          enum: [video]
+        videoId:
+          type: string
+          format: uuid
+        cachedTitle:
+          type: string
+          description: Copia cacheada del título, sincronizada desde Catálogo
+        cachedThumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        durationSeconds:
+          type: integer
+        creatorId:
+          type: string
+          format: uuid
+
+    ChannelSummary:
+      type: object
+      description: >
+        Representación liviana de un canal para fines de búsqueda. Igual que
+        ContentSummary, son datos cacheados sincronizados desde el contexto
+        que es dueño del canal como entidad editorial/social.
+      required: [kind, channelId, cachedName, subscriberCount]
+      properties:
+        kind:
+          type: string
+          enum: [channel]
+        channelId:
+          type: string
+          format: uuid
+        cachedName:
+          type: string
+        cachedAvatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        subscriberCount:
+          type: integer
+
+    # ── Search ─────────────────────────────────────────────────────────────────
+
+    SearchResultPage:
+      type: object
+      required: [query, results, nextCursor]
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResultItem'
+        nextCursor:
+          type: string
+          nullable: true
+
+    SearchResultItem:
+      type: object
+      required: [content, relevanceScore]
+      properties:
+        content:
+          oneOf:
+            - $ref: '#/components/schemas/ContentSummary'
+            - $ref: '#/components/schemas/ChannelSummary'
+          discriminator:
+            propertyName: kind
+            mapping:
+              video: '#/components/schemas/ContentSummary'
+              channel: '#/components/schemas/ChannelSummary'
+        relevanceScore:
+          type: number
+          format: float
+          description: Puntaje de relevancia entre 0 y 1
+          minimum: 0
+          maximum: 1
+
+    # ── Feed ───────────────────────────────────────────────────────────────────
+
+    FeedPage:
+      type: object
+      required: [items, nextCursor, generatedAt]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationItem'
+        nextCursor:
+          type: string
+          nullable: true
+        generatedAt:
+          type: string
+          format: date-time
+          description: Momento en que se calculó este feed (puede ser cacheado)
+
+    # ── Recommendations ────────────────────────────────────────────────────────
+
+    RecommendationSet:
+      type: object
+      required: [sourceVideoId, items, generatedAt]
+      properties:
+        sourceVideoId:
+          type: string
+          format: uuid
+          description: Video respecto al cual se calcularon las recomendaciones
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationItem'
+        generatedAt:
+          type: string
+          format: date-time
+
+    RecommendationItem:
+      type: object
+      required: [content, score, reason]
+      properties:
+        content:
+          $ref: '#/components/schemas/ContentSummary'
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Puntaje de personalización/relevancia
+        reason:
+          type: string
+          enum: [watch_history, subscription, trending, similar_content, new_upload]
+          description: Motivo principal por el cual se recomienda este contenido
+
+    # ── Explore ────────────────────────────────────────────────────────────────
+
+    ExplorePage:
+      type: object
+      required: [categories]
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExploreCategory'
+
+    ExploreCategory:
+      type: object
+      required: [category, items]
+      properties:
+        category:
+          type: string
+          example: gaming
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentSummary'
+
+    # ── Trending ───────────────────────────────────────────────────────────────
+
+    TrendingList:
+      type: object
+      required: [region, items, computedAt]
+      properties:
+        region:
+          type: string
+          example: CL
+        category:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrendingItem'
+        computedAt:
+          type: string
+          format: date-time
+
+    TrendingItem:
+      type: object
+      required: [content, rank, growthScore]
+      properties:
+        content:
+          $ref: '#/components/schemas/ContentSummary'
+        rank:
+          type: integer
+          description: Posición en el ranking de tendencias (1 = más alto)
+        growthScore:
+          type: number
+          format: float
+          description: Velocidad de crecimiento de actividad reciente
+
+    # ── Engagement signals (impressions, clicks, interests) ─────────────────────
+
+    ImpressionBatchRequest:
+      type: object
+      required: [surface, items]
+      properties:
+        surface:
+          type: string
+          enum: [home_feed, related, search, trending, explore]
+          description: Dónde se mostraron los ítems
+        items:
+          type: array
+          items:
+            type: object
+            required: [videoId, position]
+            properties:
+              videoId:
+                type: string
+                format: uuid
+              position:
+                type: integer
+                description: Posición del ítem dentro del listado mostrado
+
+    ClickRequest:
+      type: object
+      required: [surface, videoId]
+      properties:
+        surface:
+          type: string
+          enum: [home_feed, related, search, trending, explore]
+        videoId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          description: Posición del ítem dentro del listado donde se hizo click
+
+    UserInterestProfile:
+      type: object
+      required: [userId, topCategories, updatedAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        topCategories:
+          type: array
+          description: Categorías de mayor afinidad, ordenadas de mayor a menor peso
+          items:
+            type: object
+            required: [category, weight]
+            properties:
+              category:
+                type: string
+                example: gaming
+              weight:
+                type: number
+                format: float
+                minimum: 0
+                maximum: 1
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ── Signals ────────────────────────────────────────────────────────────────
+
+    IngestSignalRequest:
+      type: object
+      required: [type, videoId, occurredAt]
+      properties:
+        type:
+          type: string
+          enum:
+            - playback_completed
+            - content_published
+            - like
+            - comment
+            - subscription
+          description: Tipo de evento de origen
+        videoId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Usuario que generó la señal, si aplica
+        weight:
+          type: number
+          format: float
+          nullable: true
+          description: >
+            Peso opcional de la señal (ej. segundos vistos para
+            playback_completed). Su interpretación depende de `type`.
+        occurredAt:
+          type: string
+          format: date-time
