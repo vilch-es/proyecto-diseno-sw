@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Descubrimiento y personalización
-  version: 1.0.0
+  version: 1.0.1
   description: |
     Gestiona **cómo los espectadores encuentran contenido**: búsqueda, feed de inicio
     personalizado, videos relacionados y contenido en tendencia (trending).
@@ -30,7 +30,7 @@ info:
     - `search.performed` — una búsqueda fue ejecutada
 
 servers:
-  - url: https://api.youtube-clone.com/discovery/v1
+  - url: /api/discovery/v1
     description: Servidor de producción
 
 security:
@@ -48,13 +48,7 @@ tags:
   - name: signals
     description: Ingesta de señales de interacción desde otros contextos
 
-# ──────────────────────────────────────────────────────────────────────────────
-# PATHS
-# ──────────────────────────────────────────────────────────────────────────────
-
 paths:
-
-  # ── Search ───────────────────────────────────────────────────────────────────
 
   /search:
     get:
@@ -462,10 +456,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
-# ──────────────────────────────────────────────────────────────────────────────
-# COMPONENTS
-# ──────────────────────────────────────────────────────────────────────────────
 
 components:
 
