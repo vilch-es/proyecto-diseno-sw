@@ -1,0 +1,1467 @@
+# OpenAPI del bounded context generado a partir de los requisitos del proyecto y la estructura JSON existente.
+openapi: 3.1.0
+info:
+  title: Audiencia, comunidad y engagement
+  version: 1.0.0
+  description: |-
+    Gestiona la relación social entre usuarios, creadores y contenido: suscripciones, reacciones, comentarios, notificaciones, historial, listas personales y comunidad del canal.
+
+    Este contexto entiende la suscripción como **relación social**, no como pago Premium. No define metadata editorial, no decide ranking del home y no procesa pagos. Cuando usa `catalogItemId` o `channelId`, los trata como referencias externas validadas contra Catálogo.
+
+    ## Actores
+    - **viewer** — usuario que sigue canales, reacciona, comenta y gestiona historial.
+    - **creator** — creador que puede fijar comentarios o publicar en comunidad.
+    - **system** — servicio interno que notifica nuevo contenido o cambios de visibilidad.
+
+    ## Eventos que consume
+    - `content.published` — nuevo contenido publicado para notificar suscriptores.
+    - `content.unpublished` / `restriction.applied` — cambios de visibilidad para ocultar interacciones si aplica.
+
+    ## Eventos que emite
+    - `user.subscribed` / `user.unsubscribed`.
+    - `reaction.recorded`.
+    - `comment.created` / `comment.deleted`.
+    - `engagement.signal` — señal agregada para Descubrimiento.
+servers:
+- url: /api/v1/audiencia
+  description: Servidor de producción
+security:
+- BearerAuth: []
+tags:
+- name: subscriptions
+  description: Suscripciones sociales a canales (RF-A1)
+- name: reactions
+  description: Likes, dislikes y totales agregados (RF-A2)
+- name: comments
+  description: Comentarios, respuestas, fijado y reportes (RF-A3)
+- name: notifications
+  description: Notificaciones y preferencias (RF-A4)
+- name: history
+  description: Historial y listas personales (RF-A5)
+- name: community
+  description: Posts de comunidad del canal (RF-A6)
+- name: integration
+  description: Eventos internos consumidos/emitidos por el contexto
+paths:
+  /subscriptions:
+    post:
+      tags:
+      - subscriptions
+      summary: Seguir un canal
+      description: 'RF-A1: Crea una relación social usuario-canal.'
+      operationId: subscribeToChannel
+      security:
+      - BearerAuth:
+        - viewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionCreateRequest'
+      responses:
+        '201':
+          description: Suscripción creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      tags:
+      - subscriptions
+      summary: Listar canales seguidos por un usuario
+      operationId: listSubscriptions
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdQueryParam'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Suscripciones del usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionPage'
+  /subscriptions/{subscriptionId}:
+    delete:
+      tags:
+      - subscriptions
+      summary: Dejar de seguir un canal
+      operationId: unsubscribeFromChannel
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/SubscriptionIdParam'
+      responses:
+        '204':
+          description: Suscripción eliminada.
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /channels/{channelId}/subscribers/count:
+    get:
+      tags:
+      - subscriptions
+      summary: Consultar conteo de suscriptores
+      operationId: getSubscriberCount
+      parameters:
+      - $ref: '#/components/parameters/ChannelIdParam'
+      responses:
+        '200':
+          description: Conteo agregado de suscriptores.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - channelId
+                - count
+                properties:
+                  channelId:
+                    type: string
+                    format: uuid
+                  count:
+                    type: integer
+                    minimum: 0
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /reactions:
+    post:
+      tags:
+      - reactions
+      summary: Registrar reacción a contenido
+      description: 'RF-A2: Registra like o dislike. Si ya existe reacción, puede retornar conflicto o reemplazo según regla
+        de negocio.'
+      operationId: createReaction
+      security:
+      - BearerAuth:
+        - viewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReactionRequest'
+      responses:
+        '201':
+          description: Reacción registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /reactions/{reactionId}:
+    patch:
+      tags:
+      - reactions
+      summary: Cambiar una reacción previa
+      operationId: updateReaction
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/ReactionIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReactionUpdateRequest'
+      responses:
+        '200':
+          description: Reacción actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - reactions
+      summary: Eliminar una reacción previa
+      operationId: deleteReaction
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/ReactionIdParam'
+      responses:
+        '204':
+          description: Reacción eliminada.
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /content/{catalogItemId}/reactions/totals:
+    get:
+      tags:
+      - reactions
+      summary: Consultar totales agregados de reacciones
+      operationId: getReactionTotals
+      parameters:
+      - $ref: '#/components/parameters/CatalogItemIdParam'
+      responses:
+        '200':
+          description: Totales agregados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReactionTotals'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /comments:
+    post:
+      tags:
+      - comments
+      summary: Publicar comentario o respuesta
+      description: 'RF-A3: Permite comentar contenido o responder a un comentario existente.'
+      operationId: createComment
+      security:
+      - BearerAuth:
+        - viewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+      responses:
+        '201':
+          description: Comentario creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /content/{catalogItemId}/comments:
+    get:
+      tags:
+      - comments
+      summary: Listar comentarios de un contenido
+      operationId: listComments
+      parameters:
+      - $ref: '#/components/parameters/CatalogItemIdParam'
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - recent
+          - top
+          default: top
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Comentarios paginados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+  /comments/{commentId}:
+    patch:
+      tags:
+      - comments
+      summary: Editar comentario propio
+      operationId: updateComment
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/CommentIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdateRequest'
+      responses:
+        '200':
+          description: Comentario actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - comments
+      summary: Eliminar comentario propio
+      operationId: deleteComment
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/CommentIdParam'
+      responses:
+        '204':
+          description: Comentario eliminado.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /comments/{commentId}/pin:
+    post:
+      tags:
+      - comments
+      summary: Fijar comentario destacado
+      operationId: pinComment
+      security:
+      - BearerAuth:
+        - creator
+      parameters:
+      - $ref: '#/components/parameters/CommentIdParam'
+      responses:
+        '200':
+          description: Comentario fijado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /comments/{commentId}/report:
+    post:
+      tags:
+      - comments
+      summary: Reportar comentario inapropiado
+      operationId: reportComment
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/CommentIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentReportRequest'
+      responses:
+        '202':
+          description: Reporte aceptado.
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /notifications:
+    get:
+      tags:
+      - notifications
+      summary: Listar notificaciones del usuario
+      operationId: listNotifications
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdQueryParam'
+      - name: unreadOnly
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Notificaciones paginadas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+  /notifications/{notificationId}/read:
+    post:
+      tags:
+      - notifications
+      summary: Marcar notificación como leída
+      operationId: markNotificationAsRead
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/NotificationIdParam'
+      responses:
+        '204':
+          description: Notificación marcada como leída.
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /notifications/preferences:
+    get:
+      tags:
+      - notifications
+      summary: Obtener preferencias de notificación
+      operationId: getNotificationPreferences
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdQueryParam'
+      responses:
+        '200':
+          description: Preferencias actuales.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+    put:
+      tags:
+      - notifications
+      summary: Actualizar preferencias de notificación
+      operationId: updateNotificationPreferences
+      security:
+      - BearerAuth:
+        - viewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferences'
+      responses:
+        '200':
+          description: Preferencias actualizadas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /users/{userId}/history:
+    get:
+      tags:
+      - history
+      summary: Consultar historial de visualización
+      operationId: getWatchHistory
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Historial paginado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryPage'
+    post:
+      tags:
+      - history
+      summary: Registrar visualización en historial
+      operationId: recordWatchHistory
+      security:
+      - BearerAuth:
+        - viewer
+        - system
+      parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryCreateRequest'
+      responses:
+        '201':
+          description: Entrada de historial creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    delete:
+      tags:
+      - history
+      summary: Borrar historial del usuario
+      operationId: clearWatchHistory
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '204':
+          description: Historial borrado.
+  /users/{userId}/watch-later:
+    get:
+      tags:
+      - history
+      summary: Listar contenidos guardados para ver después
+      operationId: listWatchLater
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Lista Ver después.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchLaterPage'
+    post:
+      tags:
+      - history
+      summary: Guardar contenido para ver después
+      operationId: addWatchLater
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WatchLaterRequest'
+      responses:
+        '201':
+          description: Contenido guardado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchLaterItem'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /users/{userId}/watch-later/{catalogItemId}:
+    delete:
+      tags:
+      - history
+      summary: Quitar contenido de Ver después
+      operationId: removeWatchLater
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      - $ref: '#/components/parameters/CatalogItemIdParam'
+      responses:
+        '204':
+          description: Contenido quitado.
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /community-posts:
+    post:
+      tags:
+      - community
+      summary: Crear post de comunidad
+      description: 'RF-A6: Permite al creador publicar texto, encuesta o imagen independiente de un video.'
+      operationId: createCommunityPost
+      security:
+      - BearerAuth:
+        - creator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommunityPostCreateRequest'
+      responses:
+        '201':
+          description: Post de comunidad creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityPost'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /channels/{channelId}/community-posts:
+    get:
+      tags:
+      - community
+      summary: Listar posts de comunidad de un canal
+      operationId: listCommunityPosts
+      parameters:
+      - $ref: '#/components/parameters/ChannelIdParam'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Posts paginados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityPostPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /community-posts/{postId}/reactions:
+    post:
+      tags:
+      - community
+      summary: Reaccionar a post de comunidad
+      operationId: reactToCommunityPost
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/PostIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommunityPostReactionRequest'
+      responses:
+        '201':
+          description: Reacción registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityPostReaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /community-posts/{postId}/comments:
+    get:
+      tags:
+      - community
+      summary: Listar comentarios de un post de comunidad
+      operationId: listCommunityPostComments
+      parameters:
+      - $ref: '#/components/parameters/PostIdParam'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Comentarios paginados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+      - community
+      summary: Comentar post de comunidad
+      operationId: commentCommunityPost
+      security:
+      - BearerAuth:
+        - viewer
+      parameters:
+      - $ref: '#/components/parameters/PostIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommunityPostCommentRequest'
+      responses:
+        '201':
+          description: Comentario creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /events/content-published:
+    post:
+      tags:
+      - integration
+      summary: Consumir evento de nuevo contenido publicado
+      operationId: consumeContentPublishedEvent
+      security:
+      - BearerAuth:
+        - system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentPublishedEvent'
+      responses:
+        '202':
+          description: Evento aceptado; se generarán notificaciones eventualmente.
+  /events/content-visibility-changed:
+    post:
+      tags:
+      - integration
+      summary: Consumir evento de cambio de visibilidad
+      operationId: consumeContentVisibilityChangedEvent
+      security:
+      - BearerAuth:
+        - system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentVisibilityChangedEvent'
+      responses:
+        '202':
+          description: Evento aceptado; las interacciones se ocultarán o restaurarán eventualmente.
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Token JWT con rol de actor: viewer, creator o system.'
+  parameters:
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserIdQueryParam:
+      name: userId
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ChannelIdParam:
+      name: channelId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CatalogItemIdParam:
+      name: catalogItemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SubscriptionIdParam:
+      name: subscriptionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ReactionIdParam:
+      name: reactionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CommentIdParam:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    NotificationIdParam:
+      name: notificationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PostIdParam:
+      name: postId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: Solicitud inválida o parámetros incorrectos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Token ausente o inválido.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: El actor no tiene permiso para ejecutar esta operación.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Recurso no encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Conflicto con el estado actual del recurso.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: string
+          example: RESOURCE_NOT_FOUND
+        message:
+          type: string
+          example: El recurso solicitado no existe.
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+    SubscriptionCreateRequest:
+      type: object
+      required:
+      - userId
+      - channelId
+      properties:
+        userId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+    Subscription:
+      type: object
+      required:
+      - subscriptionId
+      - userId
+      - channelId
+      - subscribedAt
+      properties:
+        subscriptionId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        notificationLevel:
+          type: string
+          enum:
+          - all
+          - personalized
+          - none
+          default: personalized
+        subscribedAt:
+          type: string
+          format: date-time
+    SubscriptionPage:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subscription'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    ReactionRequest:
+      type: object
+      required:
+      - userId
+      - catalogItemId
+      - type
+      properties:
+        userId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - like
+          - dislike
+    ReactionUpdateRequest:
+      type: object
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - like
+          - dislike
+    Reaction:
+      type: object
+      required:
+      - reactionId
+      - userId
+      - catalogItemId
+      - type
+      - createdAt
+      properties:
+        reactionId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - like
+          - dislike
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ReactionTotals:
+      type: object
+      required:
+      - catalogItemId
+      - likes
+      - dislikes
+      properties:
+        catalogItemId:
+          type: string
+          format: uuid
+        likes:
+          type: integer
+          minimum: 0
+        dislikes:
+          type: integer
+          minimum: 0
+        score:
+          type: number
+          description: Métrica agregada interna para señales de engagement.
+    CommentCreateRequest:
+      type: object
+      required:
+      - authorId
+      - catalogItemId
+      - text
+      properties:
+        authorId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        parentCommentId:
+          type: string
+          format: uuid
+          nullable: true
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+    CommentUpdateRequest:
+      type: object
+      required:
+      - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+    Comment:
+      type: object
+      required:
+      - commentId
+      - authorId
+      - text
+      - createdAt
+      properties:
+        commentId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        postId:
+          type: string
+          format: uuid
+          nullable: true
+        parentCommentId:
+          type: string
+          format: uuid
+          nullable: true
+        authorId:
+          type: string
+          format: uuid
+        text:
+          type: string
+        pinned:
+          type: boolean
+          default: false
+        status:
+          type: string
+          enum:
+          - visible
+          - deleted
+          - hidden
+          - reported
+          default: visible
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CommentPage:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    CommentReportRequest:
+      type: object
+      required:
+      - reporterId
+      - reason
+      properties:
+        reporterId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        details:
+          type: string
+    Notification:
+      type: object
+      required:
+      - notificationId
+      - userId
+      - type
+      - read
+      - createdAt
+      properties:
+        notificationId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - new_content
+          - comment_reply
+          - comment_pinned
+          - community_post
+        title:
+          type: string
+        body:
+          type: string
+        targetUrl:
+          type: string
+          format: uri
+          nullable: true
+        read:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+    NotificationPage:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    NotificationPreferences:
+      type: object
+      required:
+      - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+        newContent:
+          type: string
+          enum:
+          - all
+          - personalized
+          - none
+          default: personalized
+        commentReplies:
+          type: boolean
+          default: true
+        communityPosts:
+          type: boolean
+          default: true
+        emailEnabled:
+          type: boolean
+          default: false
+        pushEnabled:
+          type: boolean
+          default: true
+    HistoryCreateRequest:
+      type: object
+      required:
+      - catalogItemId
+      - watchedAt
+      properties:
+        catalogItemId:
+          type: string
+          format: uuid
+        watchedAt:
+          type: string
+          format: date-time
+        progressSeconds:
+          type: integer
+          minimum: 0
+        completed:
+          type: boolean
+          default: false
+    HistoryEntry:
+      type: object
+      required:
+      - historyEntryId
+      - userId
+      - catalogItemId
+      - watchedAt
+      properties:
+        historyEntryId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        watchedAt:
+          type: string
+          format: date-time
+        progressSeconds:
+          type: integer
+          minimum: 0
+        completed:
+          type: boolean
+    HistoryPage:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    WatchLaterRequest:
+      type: object
+      required:
+      - catalogItemId
+      properties:
+        catalogItemId:
+          type: string
+          format: uuid
+    WatchLaterItem:
+      type: object
+      required:
+      - userId
+      - catalogItemId
+      - savedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        savedAt:
+          type: string
+          format: date-time
+    WatchLaterPage:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WatchLaterItem'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    CommunityPostCreateRequest:
+      type: object
+      required:
+      - channelId
+      - creatorId
+      - type
+      properties:
+        channelId:
+          type: string
+          format: uuid
+        creatorId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - text
+          - poll
+          - image
+        text:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        pollOptions:
+          type: array
+          items:
+            type: string
+    CommunityPost:
+      type: object
+      required:
+      - postId
+      - channelId
+      - creatorId
+      - type
+      - createdAt
+      properties:
+        postId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        creatorId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - text
+          - poll
+          - image
+        text:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        pollOptions:
+          type: array
+          items:
+            type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - visible
+          - deleted
+          - hidden
+          default: visible
+        createdAt:
+          type: string
+          format: date-time
+    CommunityPostPage:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityPost'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    CommunityPostReactionRequest:
+      type: object
+      required:
+      - userId
+      - type
+      properties:
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - like
+          - dislike
+    CommunityPostReaction:
+      type: object
+      required:
+      - reactionId
+      - postId
+      - userId
+      - type
+      - createdAt
+      properties:
+        reactionId:
+          type: string
+          format: uuid
+        postId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - like
+          - dislike
+        createdAt:
+          type: string
+          format: date-time
+    CommunityPostCommentRequest:
+      type: object
+      required:
+      - authorId
+      - text
+      properties:
+        authorId:
+          type: string
+          format: uuid
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        parentCommentId:
+          type: string
+          format: uuid
+          nullable: true
+    ContentPublishedEvent:
+      type: object
+      required:
+      - eventId
+      - catalogItemId
+      - channelId
+      - publishedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        titleSnapshot:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+    ContentVisibilityChangedEvent:
+      type: object
+      required:
+      - eventId
+      - catalogItemId
+      - visible
+      - changedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        visible:
+          type: boolean
+        reason:
+          type: string
+        changedAt:
+          type: string
+          format: date-time
