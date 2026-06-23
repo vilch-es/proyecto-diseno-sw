@@ -1289,7 +1289,6 @@ components:
           type: string
           format: uri
     # Copia local del evento `ad.revenue.generated` consumido desde Publicidad.
-    # Se incluye localmente para evitar dependencias externas en tiempo de validación.
     AdRevenueGeneratedEvent:
       type: object
       description: |-
@@ -1335,7 +1334,7 @@ components:
         generatedAt:
           type: string
           format: date-time
-    # Copias locales de eventos consumidos desde Catálogo (evitan $ref externos)
+    # Copias locales de eventos consumidos desde Catálogo 
     ContentPublishedEvent:
       type: object
       description: Estructura esperada del evento `content.published`, según Catálogo.
