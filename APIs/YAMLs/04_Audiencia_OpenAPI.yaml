@@ -21,7 +21,11 @@ info:
     - `user.subscribed` / `user.unsubscribed`.
     - `reaction.recorded`.
     - `comment.created` / `comment.deleted`.
-    - `engagement.signal` — señal agregada para Descubrimiento.
+    - `engagement.signal` — señal agregada consumida por Descubrimiento.
+
+    Antes de crear reacciones, comentarios, historial o elementos de "ver después", Audiencia valida el `catalogItemId` con Catálogo usando la consulta síncrona de visibilidad. Para suscripciones y posts de comunidad valida la existencia de `channelId` contra Catálogo, sin copiar metadata editorial.
+
+    La integración con Catálogo es eventualmente consistente. Si Catálogo informa que un contenido deja de estar visible, Audiencia oculta interacciones públicas, evita nuevas interacciones y mantiene datos privados como historial o listas personales salvo borrado del usuario.
 servers:
 - url: /api/v1/audiencia
   description: Servidor de producción
@@ -48,7 +52,7 @@ paths:
       tags:
       - subscriptions
       summary: Seguir un canal
-      description: 'RF-A1: Crea una relación social usuario-canal.'
+      description: 'RF-A1: Crea una relación social usuario-canal. Valida la existencia de `channelId` contra Catálogo sin copiar metadata editorial.'
       operationId: subscribeToChannel
       security:
       - BearerAuth:
@@ -68,6 +72,10 @@ paths:
                 $ref: '#/components/schemas/Subscription'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
     get:
@@ -130,6 +138,8 @@ paths:
                   count:
                     type: integer
                     minimum: 0
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /reactions:
@@ -137,8 +147,7 @@ paths:
       tags:
       - reactions
       summary: Registrar reacción a contenido
-      description: 'RF-A2: Registra like o dislike. Si ya existe reacción, puede retornar conflicto o reemplazo según regla
-        de negocio.'
+      description: 'RF-A2: Registra like o dislike. Antes de crearla valida el `catalogItemId` con la consulta síncrona de visibilidad de Catálogo. Si ya existe reacción, puede retornar conflicto o reemplazo según regla de negocio.'
       operationId: createReaction
       security:
       - BearerAuth:
@@ -158,6 +167,10 @@ paths:
                 $ref: '#/components/schemas/Reaction'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
   /reactions/{reactionId}:
@@ -216,6 +229,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReactionTotals'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /comments:
@@ -223,7 +238,7 @@ paths:
       tags:
       - comments
       summary: Publicar comentario o respuesta
-      description: 'RF-A3: Permite comentar contenido o responder a un comentario existente.'
+      description: 'RF-A3: Permite comentar contenido o responder a un comentario existente. Antes de crear el comentario valida el `catalogItemId` con la consulta síncrona de visibilidad de Catálogo.'
       operationId: createComment
       security:
       - BearerAuth:
@@ -243,6 +258,10 @@ paths:
                 $ref: '#/components/schemas/Comment'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /content/{catalogItemId}/comments:
     get:
       tags:
@@ -269,6 +288,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommentPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /comments/{commentId}:
     patch:
       tags:
@@ -465,6 +488,7 @@ paths:
       tags:
       - history
       summary: Registrar visualización en historial
+      description: Registra una referencia privada de historial. Antes de crearla valida el `catalogItemId` con la consulta síncrona de visibilidad de Catálogo.
       operationId: recordWatchHistory
       security:
       - BearerAuth:
@@ -487,6 +511,10 @@ paths:
                 $ref: '#/components/schemas/HistoryEntry'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags:
       - history
@@ -524,6 +552,7 @@ paths:
       tags:
       - history
       summary: Guardar contenido para ver después
+      description: Antes de guardar valida el `catalogItemId` con la consulta síncrona de visibilidad de Catálogo.
       operationId: addWatchLater
       security:
       - BearerAuth:
@@ -543,6 +572,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WatchLaterItem'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
   /users/{userId}/watch-later/{catalogItemId}:
@@ -567,7 +600,7 @@ paths:
       tags:
       - community
       summary: Crear post de comunidad
-      description: 'RF-A6: Permite al creador publicar texto, encuesta o imagen independiente de un video.'
+      description: 'RF-A6: Permite al creador publicar texto, encuesta o imagen independiente de un video. Valida la existencia de `channelId` contra Catálogo sin copiar metadata editorial.'
       operationId: createCommunityPost
       security:
       - BearerAuth:
@@ -587,6 +620,10 @@ paths:
                 $ref: '#/components/schemas/CommunityPost'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /channels/{channelId}/community-posts:
     get:
       tags:
@@ -604,6 +641,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommunityPostPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /community-posts/{postId}/reactions:
@@ -718,7 +757,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 'Token JWT con rol de actor: viewer, creator o system.'
+      description: 'Token JWT con roles/scopes de actor. Los valores declarados en `security` para cada operación indican los roles/scopes permitidos, por ejemplo viewer, creator o system.'
   parameters:
     UserIdParam:
       name: userId
@@ -963,6 +1002,17 @@ components:
           type: string
           format: date-time
           nullable: true
+        visibilityState:
+          type: string
+          description: Estado derivado de la última validación o evento de Catálogo; Audiencia no decide la visibilidad editorial.
+          enum:
+          - visible
+          - hidden_by_catalog
+          - unknown
+          default: visible
+        hiddenReason:
+          type: string
+          nullable: true
     ReactionTotals:
       type: object
       required:
@@ -982,6 +1032,17 @@ components:
         score:
           type: number
           description: Métrica agregada interna para señales de engagement.
+        visibilityState:
+          type: string
+          description: Estado derivado de Catálogo usado para ocultar totales públicos cuando el contenido deja de estar visible.
+          enum:
+          - visible
+          - hidden_by_catalog
+          - unknown
+          default: visible
+        hiddenReason:
+          type: string
+          nullable: true
     CommentCreateRequest:
       type: object
       required:
@@ -1050,6 +1111,17 @@ components:
           - deleted
           - hidden
           - reported
+          default: visible
+        hiddenReason:
+          type: string
+          nullable: true
+        visibilityState:
+          type: string
+          description: Estado derivado de Catálogo para comentarios asociados a contenido externo.
+          enum:
+          - visible
+          - hidden_by_catalog
+          - unknown
           default: visible
         createdAt:
           type: string
@@ -1213,6 +1285,17 @@ components:
           minimum: 0
         completed:
           type: boolean
+        visibilityState:
+          type: string
+          description: Estado derivado de Catálogo; el historial privado se conserva aunque el contenido deje de estar visible, salvo borrado del usuario.
+          enum:
+          - visible
+          - hidden_by_catalog
+          - unknown
+          default: visible
+        hiddenReason:
+          type: string
+          nullable: true
     HistoryPage:
       type: object
       required:
@@ -1255,6 +1338,17 @@ components:
         savedAt:
           type: string
           format: date-time
+        visibilityState:
+          type: string
+          description: Estado derivado de Catálogo; el elemento privado se conserva aunque el contenido deje de estar visible, salvo borrado del usuario.
+          enum:
+          - visible
+          - hidden_by_catalog
+          - unknown
+          default: visible
+        hiddenReason:
+          type: string
+          nullable: true
     WatchLaterPage:
       type: object
       required:
@@ -1422,10 +1516,303 @@ components:
           type: string
           format: uuid
           nullable: true
+    UserSubscribedEvent:
+      type: object
+      description: Evento `user.subscribed` emitido por Audiencia cuando un usuario sigue un canal existente en Catálogo.
+      required:
+      - eventId
+      - eventType
+      - subscriptionId
+      - userId
+      - channelId
+      - notificationLevel
+      - subscribedAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - user.subscribed
+        subscriptionId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        notificationLevel:
+          type: string
+          enum:
+          - all
+          - personalized
+          - none
+        subscribedAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    UserUnsubscribedEvent:
+      type: object
+      description: Evento `user.unsubscribed` emitido por Audiencia cuando un usuario deja de seguir un canal.
+      required:
+      - eventId
+      - eventType
+      - subscriptionId
+      - userId
+      - channelId
+      - unsubscribedAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - user.unsubscribed
+        subscriptionId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        unsubscribedAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    ReactionRecordedEvent:
+      type: object
+      description: Evento `reaction.recorded` emitido por Audiencia tras crear, cambiar o quitar una reacción sobre contenido visible en Catálogo.
+      required:
+      - eventId
+      - eventType
+      - reactionId
+      - userId
+      - catalogItemId
+      - action
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - reaction.recorded
+        reactionId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        reactionType:
+          type: string
+          enum:
+          - like
+          - dislike
+          nullable: true
+        action:
+          type: string
+          enum:
+          - created
+          - updated
+          - deleted
+        previousReactionType:
+          type: string
+          enum:
+          - like
+          - dislike
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+    CommentCreatedEvent:
+      type: object
+      description: Evento `comment.created` emitido por Audiencia para comentarios de contenido o comunidad.
+      required:
+      - eventId
+      - eventType
+      - commentId
+      - authorId
+      - targetType
+      - targetId
+      - createdAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - comment.created
+        commentId:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+          enum:
+          - catalog_item
+          - community_post
+        targetId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        postId:
+          type: string
+          format: uuid
+          nullable: true
+        parentCommentId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    CommentDeletedEvent:
+      type: object
+      description: Evento `comment.deleted` emitido por Audiencia cuando un comentario se elimina u oculta por moderación local.
+      required:
+      - eventId
+      - eventType
+      - commentId
+      - targetType
+      - targetId
+      - deletedBy
+      - deletionReason
+      - deletedAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - comment.deleted
+        commentId:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+          enum:
+          - catalog_item
+          - community_post
+        targetId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        postId:
+          type: string
+          format: uuid
+          nullable: true
+        deletedBy:
+          type: string
+          format: uuid
+        deletionReason:
+          type: string
+          enum:
+          - user_deleted
+          - moderation
+          - catalog_hidden
+        deletedAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    EngagementSignalEvent:
+      type: object
+      description: Evento `engagement.signal` emitido por Audiencia y consumido por Descubrimiento como señal social agregada.
+      required:
+      - eventId
+      - eventType
+      - targetType
+      - targetId
+      - signalType
+      - signalValue
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - engagement.signal
+        targetType:
+          type: string
+          enum:
+          - catalog_item
+          - channel
+          - community_post
+        targetId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        channelId:
+          type: string
+          format: uuid
+          nullable: true
+        postId:
+          type: string
+          format: uuid
+          nullable: true
+        signalType:
+          type: string
+          enum:
+          - reaction
+          - comment
+          - subscription
+          - save_for_later
+          - history
+        signalValue:
+          type: number
+        visibilityState:
+          type: string
+          description: Estado derivado de Catálogo al momento de emitir la señal, cuando aplica.
+          enum:
+          - visible
+          - hidden_by_catalog
+          - unknown
+          default: visible
+        occurredAt:
+          type: string
+          format: date-time
     ContentPublishedEvent:
       type: object
       required:
       - eventId
+      - eventType
       - catalogItemId
       - channelId
       - publishedAt
@@ -1433,14 +1820,16 @@ components:
         eventId:
           type: string
           format: uuid
+        eventType:
+          type: string
+          enum:
+          - content.published
         catalogItemId:
           type: string
           format: uuid
         channelId:
           type: string
           format: uuid
-        titleSnapshot:
-          type: string
         publishedAt:
           type: string
           format: date-time
@@ -1448,6 +1837,7 @@ components:
       type: object
       required:
       - eventId
+      - eventType
       - catalogItemId
       - visible
       - changedAt
@@ -1455,13 +1845,28 @@ components:
         eventId:
           type: string
           format: uuid
+        eventType:
+          type: string
+          enum:
+          - content.unpublished
+          - restriction.applied
+          - restriction.lifted
         catalogItemId:
           type: string
           format: uuid
         visible:
           type: boolean
+        visibilityState:
+          type: string
+          enum:
+          - visible
+          - hidden_by_catalog
+          - unknown
         reason:
           type: string
+        hiddenReason:
+          type: string
+          nullable: true
         changedAt:
           type: string
           format: date-time

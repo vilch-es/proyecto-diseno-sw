@@ -24,6 +24,10 @@ info:
     - `content.updated` — metadata editorial modificada.
     - `restriction.applied` / `restriction.lifted` — cambio de política o visibilidad.
     - `rights.claim.created` / `rights.claim.resolved` — ciclo de reclamaciones de derechos.
+
+    Los eventos se emiten de forma asíncrona. Otros bounded contexts pueden quedar temporalmente desincronizados y deben usar la consulta síncrona de visibilidad cuando necesiten una decisión inmediata.
+
+    El endpoint de visibilidad permanece como consulta síncrona para otros contextos. Si un contenido se despublica o restringe mientras un usuario lo está viendo, Catálogo refleja el nuevo estado en esa consulta y emite el evento correspondiente; no controla la sesión técnica, por lo que los contextos consumidores deben revalidar y aplicar su política con posible consistencia eventual.
 servers:
 - url: /api/v1/catalogo
   description: Servidor de producción
@@ -455,15 +459,15 @@ paths:
         - moderator
       parameters:
       - $ref: '#/components/parameters/CatalogItemIdParam'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PageSizeParam'
       responses:
         '200':
           description: Reclamaciones asociadas al contenido.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Claim'
+                $ref: '#/components/schemas/ClaimPage'
         '404':
           $ref: '#/components/responses/NotFound'
   /claims/{claimId}/resolve:
@@ -587,7 +591,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 'Token JWT con rol de actor: creator, viewer, rightsHolder, moderator o system.'
+      description: 'Token JWT con roles/scopes de actor. Los valores declarados en `security` para cada operación indican los roles/scopes permitidos, por ejemplo creator, viewer, rightsHolder, moderator o system.'
   parameters:
     ChannelIdParam:
       name: channelId
@@ -1068,6 +1072,27 @@ components:
           - withdrawn
         comment:
           type: string
+    ClaimPage:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Claim'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
     Restriction:
       type: object
       required:
@@ -1170,19 +1195,25 @@ components:
         readyAt:
           type: string
           format: date-time
-    # Shape canónica del evento `content.published` emitido por Catálogo.
     ContentPublishedEvent:
       type: object
       description: Estructura canónica del evento `content.published` emitido por Catálogo.
       required:
       - eventId
+      - eventType
       - catalogItemId
       - channelId
+      - status
       - publishedAt
+      - occurredAt
       properties:
         eventId:
           type: string
           format: uuid
+        eventType:
+          type: string
+          enum:
+          - content.published
         catalogItemId:
           type: string
           format: uuid
@@ -1193,25 +1224,146 @@ components:
           type: [string, "null"]
           format: uuid
           description: Asset técnico asociado (nullable si no aplica).
+        status:
+          type: string
+          enum:
+          - published
         publishedAt:
           type: string
           format: date-time
-
-    # Shape canónica del evento `restriction.applied` emitido por Catálogo.
+        occurredAt:
+          type: string
+          format: date-time
+    ContentUnpublishedEvent:
+      type: object
+      description: Estructura canónica del evento `content.unpublished` emitido por Catálogo.
+      required:
+      - eventId
+      - eventType
+      - catalogItemId
+      - channelId
+      - previousStatus
+      - newStatus
+      - reason
+      - unpublishedAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - content.unpublished
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        previousStatus:
+          type: string
+          enum:
+          - published
+          - restricted
+        newStatus:
+          type: string
+          enum:
+          - unpublished
+        reason:
+          type: string
+        actorId:
+          type: string
+          format: uuid
+          nullable: true
+        unpublishedAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    ContentUpdatedEvent:
+      type: object
+      description: Estructura canónica del evento `content.updated` emitido por Catálogo cuando cambia metadata editorial.
+      required:
+      - eventId
+      - eventType
+      - catalogItemId
+      - channelId
+      - changedFields
+      - updatedAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - content.updated
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        changedFields:
+          type: array
+          items:
+            type: string
+          example:
+          - title
+          - thumbnailUrl
+        previousStatus:
+          type: string
+          enum:
+          - draft
+          - published
+          - unpublished
+          - restricted
+          nullable: true
+        currentStatus:
+          type: string
+          enum:
+          - draft
+          - published
+          - unpublished
+          - restricted
+        updatedAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
     RestrictionAppliedEvent:
       type: object
       description: Estructura canónica del evento `restriction.applied` emitido por Catálogo.
       required:
       - eventId
+      - eventType
+      - restrictionId
       - catalogItemId
+      - channelId
       - type
       - active
+      - visibilityImpact
       - appliedAt
+      - occurredAt
       properties:
         eventId:
           type: string
           format: uuid
+        eventType:
+          type: string
+          enum:
+          - restriction.applied
+        restrictionId:
+          type: string
+          format: uuid
         catalogItemId:
+          type: string
+          format: uuid
+        channelId:
           type: string
           format: uuid
         type:
@@ -1223,8 +1375,168 @@ components:
           - moderation
         active:
           type: boolean
+        visibilityImpact:
+          type: string
+          enum:
+          - limited
+          - hidden
+          - monetization-limited
         reason:
           type: [string, "null"]
+        details:
+          type: object
+          additionalProperties: true
         appliedAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    RestrictionLiftedEvent:
+      type: object
+      description: Estructura canónica del evento `restriction.lifted` emitido por Catálogo.
+      required:
+      - eventId
+      - eventType
+      - restrictionId
+      - catalogItemId
+      - channelId
+      - type
+      - previousActive
+      - active
+      - liftedAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - restriction.lifted
+        restrictionId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - age
+          - geo
+          - monetization
+          - moderation
+        previousActive:
+          type: boolean
+        active:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+        liftedAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    RightsClaimCreatedEvent:
+      type: object
+      description: Estructura canónica del evento `rights.claim.created` emitido por Catálogo.
+      required:
+      - eventId
+      - eventType
+      - claimId
+      - catalogItemId
+      - claimantId
+      - claimType
+      - status
+      - createdAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - rights.claim.created
+        claimId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        claimantId:
+          type: string
+          format: uuid
+        claimType:
+          type: string
+          enum:
+          - copyright
+          - trademark
+          - privacy
+          - other
+        status:
+          type: string
+          enum:
+          - open
+        createdAt:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+    RightsClaimResolvedEvent:
+      type: object
+      description: Estructura canónica del evento `rights.claim.resolved` emitido por Catálogo.
+      required:
+      - eventId
+      - eventType
+      - claimId
+      - catalogItemId
+      - claimantId
+      - previousStatus
+      - newStatus
+      - resolvedAt
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+          - rights.claim.resolved
+        claimId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        claimantId:
+          type: string
+          format: uuid
+        previousStatus:
+          type: string
+          enum:
+          - open
+          - disputed
+        newStatus:
+          type: string
+          enum:
+          - accepted
+          - disputed
+          - withdrawn
+        resolution:
+          type: string
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+        occurredAt:
           type: string
           format: date-time
