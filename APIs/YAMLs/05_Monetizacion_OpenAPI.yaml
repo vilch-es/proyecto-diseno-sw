@@ -602,7 +602,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
+              $ref: '#/components/schemas/ContentPublishedEvent'
       responses:
         '202':
           description: Evento aceptado.
@@ -624,7 +624,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
+              $ref: '#/components/schemas/RestrictionAppliedEvent'
       responses:
         '202':
           description: Evento aceptado.
@@ -1306,15 +1306,107 @@ components:
         documentUrl:
           type: string
           format: uri
-    # Shape local del evento `ad.revenue.generated` consumido desde Publicidad.
-    # Definición propia de este contexto (no $ref externo) para mantener el spec independiente.
+    # Copia local del evento `ad.revenue.generated` consumido desde Publicidad.
+    # Se incluye localmente para evitar dependencias externas en tiempo de validación.
     AdRevenueGeneratedEvent:
-      $ref: '06_Publicidad_OpenAPI.yaml#/components/schemas/AdRevenueGeneratedEvent'
-    # Estructura del evento `content.published`, definida canónicamente en Catálogo
-    # (contexto emisor). Se referencia esa definición para evitar duplicación.
-    #ContentPublishedEvent:
-    #  $ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
-    # Estructura del evento `restriction.applied`, definida canónicamente en Catálogo
-    # (contexto emisor). Se referencia esa definición para evitar duplicación.
-    #RestrictionAppliedEvent:
-      #$ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
+      type: object
+      description: |-
+        Estructura del evento `ad.revenue.generated` emitido por Publicidad y consumido por Monetización.
+      required:
+      - eventId
+      - impressionId
+      - catalogItemId
+      - channelId
+      - amount
+      - currency
+      - generatedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        impressionId:
+          type: string
+          format: uuid
+          description: Se usa como referenceId para idempotencia del ingreso en Monetización.
+        campaignId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          description: Contenido sobre el que se sirvió el anuncio (referencia a Catálogo).
+        videoAssetId:
+          type: [string, "null"]
+          format: uuid
+          description: Asset técnico asociado. Null si no se conoce o no aplica.
+        channelId:
+          type: string
+          format: uuid
+          description: Canal propietario del contenido, destinatario del ingreso.
+        amount:
+          type: number
+          description: Monto bruto del ingreso publicitario a repartir.
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        generatedAt:
+          type: string
+          format: date-time
+    # Copias locales de eventos consumidos desde Catálogo (evitan $ref externos)
+    ContentPublishedEvent:
+      type: object
+      description: Estructura esperada del evento `content.published`, según Catálogo.
+      required:
+      - eventId
+      - catalogItemId
+      - channelId
+      - publishedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        videoAssetId:
+          type: [string, "null"]
+          format: uuid
+          description: Asset técnico asociado (nullable si no aplica).
+        publishedAt:
+          type: string
+          format: date-time
+
+    RestrictionAppliedEvent:
+      type: object
+      description: Estructura esperada del evento `restriction.applied`, según Catálogo.
+      required:
+      - eventId
+      - catalogItemId
+      - type
+      - active
+      - appliedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - age
+          - geo
+          - monetization
+          - moderation
+        active:
+          type: boolean
+        reason:
+          type: [string, "null"]
+        appliedAt:
+          type: string
+          format: date-time
