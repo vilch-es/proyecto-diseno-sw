@@ -721,9 +721,8 @@ components:
           type: string
           example: El recurso solicitado no existe.
         details:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
-          nullable: true
           description: Información adicional sobre el error (contexto específico de depuración)
     IncomeSource:
       type: string
@@ -772,14 +771,12 @@ components:
         policyCompliant:
           type: boolean
         activatedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Fecha cuando se activó la monetización por primera vez. Null si nunca se activó.
         updatedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Última fecha de cambio en el estado de elegibilidad. Null si nunca cambió.
     MonetizationApplicationRequest:
       type: object
@@ -814,8 +811,7 @@ components:
           - pending
           - rejected
         rejectionReason:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Motivo del rechazo si eligibility=rejected. Null si fue aprobado o está pendiente.
         submittedAt:
           type: string
@@ -828,9 +824,8 @@ components:
         active:
           type: boolean
         catalogItemId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Si se especifica, activa/desactiva monetización solo para ese contenido.
     MembershipTier:
       type: object
@@ -952,14 +947,12 @@ components:
           minLength: 3
           maxLength: 3
         catalogItemId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: ID del contenido si la compra está asociada a un video. Null si es propina general de canal.
         tierId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: ID del nivel de membresía si source=membership. Null si source=tip.
     IncomeRecord:
       type: object
@@ -981,14 +974,12 @@ components:
           type: string
           format: uuid
         catalogItemId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Contenido asociado (referencia a Catálogo), cuando aplica.
         videoAssetId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Asset técnico asociado (referencia a Publicación), cuando aplica.
         source:
           $ref: '#/components/schemas/IncomeSource'
@@ -1010,16 +1001,14 @@ components:
         status:
           $ref: '#/components/schemas/IncomeStatus'
         referenceId:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Identificador idempotente de origen (p. ej. impressionId del evento de Publicidad).
         createdAt:
           type: string
           format: date-time
         confirmedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Fecha cuando el ingreso se confirmó como pagable. Null mientras esté en estado pending.
     IncomeRecordPage:
       type: object
@@ -1143,9 +1132,8 @@ components:
           - ready
           - failed
         downloadUrl:
-          type: string
+          type: [string, "null"]
           format: uri
-          nullable: true
           description: URL de descarga del reporte. Null mientras status=generating.
         requestedAt:
           type: string
@@ -1226,13 +1214,11 @@ components:
           type: string
           format: date-time
         completedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Fecha cuando se completó el pago. Null mientras está pendiente o procesando.
         failureReason:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Motivo del fallo si status=failed. Null si está pendiente, procesando o completado.
     PayoutPage:
       type: object
@@ -1270,25 +1256,21 @@ components:
           - rejected
           description: Estado del perfil fiscal del creador
         documentType:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Tipo de documento fiscal (W-8BEN, DNI, etc.). Null si status=missing.
           example: W-8BEN
         country:
-          type: string
+          type: [string, "null"]
           minLength: 2
           maxLength: 2
-          nullable: true
           description: País del documento fiscal. Null si status=missing.
         submittedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Fecha cuando se envió la documentación. Null si status=missing.
         verifiedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Fecha cuando se verificó la documentación. Null si status != verified.
     TaxProfileRequest:
       type: object
