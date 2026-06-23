@@ -28,19 +28,19 @@ security:
 - BearerAuth: []
 tags:
 - name: advertisers
-  description: Gestión de cuentas de anunciantes y facturación (RF-F1)
+  description: Gestión de cuentas de anunciantes y facturación 
 - name: campaigns
-  description: Campañas con objetivo, presupuesto, vigencia y ciclo de vida (RF-F2)
+  description: Campañas con objetivo, presupuesto, vigencia y ciclo de vida 
 - name: creatives
-  description: Creativos publicitarios y su validación (RF-F3)
+  description: Creativos publicitarios y su validación 
 - name: targeting
-  description: Criterios de segmentación y estimación de inventario (RF-F4, RF-F5)
+  description: Criterios de segmentación y estimación de inventario 
 - name: delivery
-  description: Decisión y entrega de anuncios (RF-F6)
+  description: Decisión y entrega de anuncios 
 - name: measurement
-  description: Impresiones, clicks, skips y gasto (RF-F7)
+  description: Impresiones, clicks, skips y gasto
 - name: reporting
-  description: Métricas, reportes e invoices para anunciantes (RF-F8)
+  description: Métricas, reportes e invoices para anunciantes
 - name: integration
   description: Endpoints internos para integración entre bounded contexts
 paths:
@@ -49,7 +49,7 @@ paths:
       tags:
       - advertisers
       summary: Registrar una cuenta de anunciante
-      description: 'RF-F1: Registra una cuenta de anunciante.'
+      description: 'Registra una cuenta de anunciante.'
       operationId: createAdvertiser
       security:
       - BearerAuth:
@@ -95,7 +95,7 @@ paths:
       tags:
       - advertisers
       summary: Administrar datos de facturación
-      description: 'RF-F1: Administra los datos de facturación del anunciante.'
+      description: 'Administra los datos de facturación del anunciante.'
       operationId: updateBillingProfile
       security:
       - BearerAuth:
@@ -124,7 +124,7 @@ paths:
       tags:
       - campaigns
       summary: Crear una campaña
-      description: 'RF-F2: Crea una campaña con objetivo, presupuesto y vigencia.'
+      description: 'Crea una campaña con objetivo, presupuesto y vigencia.'
       operationId: createCampaign
       security:
       - BearerAuth:
@@ -192,7 +192,7 @@ paths:
       tags:
       - campaigns
       summary: Cambiar estado de una campaña
-      description: 'RF-F2: Pausa, reanuda o finaliza una campaña. No se sirven anuncios si el presupuesto está agotado.'
+      description: 'Pausa, reanuda o finaliza una campaña. No se sirven anuncios si el presupuesto está agotado.'
       operationId: setCampaignStatus
       security:
       - BearerAuth:
@@ -221,7 +221,7 @@ paths:
       tags:
       - creatives
       summary: Subir y registrar un creativo
-      description: 'RF-F3: Sube y registra un creativo (video, display, etc.). Queda en validación según políticas publicitarias.'
+      description: 'Sube y registra un creativo (video, display, etc.). Queda en validación según políticas publicitarias.'
       operationId: createCreative
       security:
       - BearerAuth:
@@ -263,7 +263,7 @@ paths:
       tags:
       - creatives
       summary: Aprobar o rechazar un creativo
-      description: 'RF-F3: Revisa un creativo pendiente según políticas publicitarias y lo aprueba o rechaza.'
+      description: ' Revisa un creativo pendiente según políticas publicitarias y lo aprueba o rechaza.'
       operationId: reviewCreative
       security:
       - BearerAuth:
@@ -292,7 +292,7 @@ paths:
       tags:
       - creatives
       summary: Asociar un creativo a una campaña
-      description: 'RF-F3: Asocia un creativo existente a una campaña.'
+      description: 'Asocia un creativo existente a una campaña.'
       operationId: attachCreativeToCampaign
       security:
       - BearerAuth:
@@ -333,7 +333,7 @@ paths:
       tags:
       - targeting
       summary: Definir criterios de segmentación
-      description: 'RF-F4: Define criterios de segmentación (país, edad, intereses, categoría de contenido, etc.).'
+      description: 'Define criterios de segmentación (país, edad, intereses, categoría de contenido, etc.).'
       operationId: setTargeting
       security:
       - BearerAuth:
@@ -362,7 +362,7 @@ paths:
       tags:
       - targeting
       summary: Estimar inventario disponible según targeting
-      description: 'RF-F4: Estima el inventario disponible para un conjunto de criterios de segmentación.'
+      description: 'Estima el inventario disponible para un conjunto de criterios de segmentación.'
       operationId: estimateInventory
       security:
       - BearerAuth:
@@ -388,7 +388,7 @@ paths:
       - targeting
       summary: Consultar elegibilidad publicitaria de un contenido
       description: |-
-        RF-F5: Determina si un contenido es elegible para mostrar anuncios, respetando las restricciones del catálogo
+        Determina si un contenido es elegible para mostrar anuncios, respetando las restricciones del catálogo
         (no monetizable, restringido, etc.). Consulta síncrona usada por la decisión de anuncios.
       operationId: getContentAdEligibility
       parameters:
@@ -413,7 +413,7 @@ paths:
       - delivery
       summary: Decidir qué anuncio mostrar en una oportunidad de visualización
       description: |-
-        RF-F6: Ante una oportunidad de visualización, decide qué anuncio mostrar (o ninguno), considerando campañas activas,
+        Ante una oportunidad de visualización, decide qué anuncio mostrar (o ninguno), considerando campañas activas,
         targeting, subasta/prioridad y brand safety. Si se sirve un anuncio, emite `ad.served`.
       operationId: decideAd
       security:
@@ -466,7 +466,7 @@ paths:
       tags:
       - measurement
       summary: Registrar click o skip sobre una impresión
-      description: 'RF-F7: Registra un click o un skip asociado a una impresión previamente servida.'
+      description: 'Registra un click o un skip asociado a una impresión previamente servida.'
       operationId: recordImpressionInteraction
       security:
       - BearerAuth:
@@ -506,7 +506,7 @@ paths:
       tags:
       - reporting
       summary: Consultar métricas de una campaña
-      description: 'RF-F8: Expone métricas de campaña: impresiones, CTR, CPM, gasto.'
+      description: 'Expone métricas de campaña: impresiones, CTR, CPM, gasto.'
       operationId: getCampaignMetrics
       security:
       - BearerAuth:
@@ -539,7 +539,7 @@ paths:
       tags:
       - reporting
       summary: Listar invoices de un anunciante
-      description: 'RF-F8: Genera reportes e invoices para el anunciante.'
+      description: 'Genera reportes e invoices para el anunciante.'
       operationId: listInvoices
       security:
       - BearerAuth:

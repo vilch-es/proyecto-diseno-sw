@@ -28,15 +28,15 @@ security:
 - BearerAuth: []
 tags:
 - name: eligibility
-  description: Alta y elegibilidad de monetización (RF-M1)
+  description: Alta y elegibilidad de monetización
 - name: products
-  description: Configuración de productos del creador — membresías y propinas (RF-M2)
+  description: Configuración de productos del creador — membresías y propinas 
 - name: income
-  description: Registro de ingresos asociados a contenido y canal (RF-M3)
+  description: Registro de ingresos asociados a contenido y canal 
 - name: earnings
-  description: Consulta de ganancias y reportes (RF-M4)
+  description: Consulta de ganancias y reportes 
 - name: payouts
-  description: Saldo, retiros y documentación fiscal (RF-M5)
+  description: Saldo, retiros y documentación fiscal
 - name: integration
   description: Endpoints internos para integración entre bounded contexts
 paths:
@@ -45,7 +45,7 @@ paths:
       tags:
       - eligibility
       summary: Consultar estado de monetización y elegibilidad de un canal
-      description: 'RF-M1: Informa el estado de elegibilidad (apto, pendiente, rechazado) y si la monetización está activa.'
+      description: 'Informa el estado de elegibilidad (apto, pendiente, rechazado) y si la monetización está activa.'
       operationId: getMonetizationStatus
       security:
       - BearerAuth:
@@ -68,7 +68,7 @@ paths:
       tags:
       - eligibility
       summary: Solicitar monetización de un canal
-      description: 'RF-M1: Un creador solicita monetizar su canal. El sistema evalúa requisitos de elegibilidad (suscriptores,
+      description: 'Un creador solicita monetizar su canal. El sistema evalúa requisitos de elegibilidad (suscriptores,
         horas de visualización, cumplimiento de políticas).'
       operationId: requestMonetization
       security:
@@ -100,7 +100,7 @@ paths:
       tags:
       - eligibility
       summary: Activar o desactivar monetización
-      description: 'RF-M1: Activa o desactiva la monetización a nivel canal o contenido. Emite `monetization.enabled` o `monetization.disabled`.'
+      description: 'Activa o desactiva la monetización a nivel canal o contenido. Emite `monetization.enabled` o `monetization.disabled`.'
       operationId: setMonetizationActivation
       security:
       - BearerAuth:
@@ -149,7 +149,7 @@ paths:
       tags:
       - products
       summary: Definir un nivel de membresía
-      description: 'RF-M2: Define un nivel de membresía de canal con precio y beneficios.'
+      description: 'Define un nivel de membresía de canal con precio y beneficios.'
       operationId: createMembershipTier
       security:
       - BearerAuth:
@@ -221,7 +221,7 @@ paths:
       tags:
       - products
       summary: Gestionar configuración de propinas en videos
-      description: 'RF-M2: Habilita o ajusta propinas / agradecimientos del canal.'
+      description: 'Habilita o ajusta propinas / agradecimientos del canal.'
       operationId: updateTipsConfig
       security:
       - BearerAuth:
@@ -248,7 +248,7 @@ paths:
       tags:
       - products
       summary: Registrar compra de membresía o propina de un espectador
-      description: 'RF-M2: Registra cuando un espectador compra una membresía o deja una propina. Genera un ingreso interno
+      description: 'Registra cuando un espectador compra una membresía o deja una propina. Genera un ingreso interno
         del ecosistema creador-espectador.'
       operationId: recordViewerPurchase
       security:
@@ -279,7 +279,7 @@ paths:
       tags:
       - income
       summary: Listar ingresos registrados de un canal
-      description: 'RF-M3: Lista los eventos de ingreso asociados a contenido y canal, con su estado (pendiente, confirmado,
+      description: 'Lista los eventos de ingreso asociados a contenido y canal, con su estado (pendiente, confirmado,
         pagado).'
       operationId: listIncomeRecords
       security:
@@ -333,7 +333,7 @@ paths:
       tags:
       - earnings
       summary: Consultar ganancias por periodo
-      description: 'RF-M4: Devuelve ganancias por periodo (día, mes, etc.) con desglose por fuente de ingreso y métricas como
+      description: 'Devuelve ganancias por periodo (día, mes, etc.) con desglose por fuente de ingreso y métricas como
         RPM.'
       operationId: getEarnings
       security:
@@ -379,7 +379,7 @@ paths:
       tags:
       - earnings
       summary: Desglose de ganancias por video
-      description: 'RF-M4: Devuelve ganancias desglosadas por contenido, fuente y métricas.'
+      description: 'Devuelve ganancias desglosadas por contenido, fuente y métricas.'
       operationId: getEarningsByContent
       security:
       - BearerAuth:
@@ -414,7 +414,7 @@ paths:
       tags:
       - earnings
       summary: Generar un reporte exportable de ganancias
-      description: 'RF-M4: Genera un reporte exportable (PDF/CSV) para el creador. La generación es asíncrona.'
+      description: 'Genera un reporte exportable (PDF/CSV) para el creador. La generación es asíncrona.'
       operationId: createEarningsReport
       security:
       - BearerAuth:
@@ -443,7 +443,7 @@ paths:
       tags:
       - payouts
       summary: Consultar saldo disponible del creador
-      description: 'RF-M5: Devuelve saldo disponible, pendiente y mínimo de retiro.'
+      description: 'Devuelve saldo disponible, pendiente y mínimo de retiro.'
       operationId: getBalance
       security:
       - BearerAuth:
@@ -464,7 +464,7 @@ paths:
       tags:
       - payouts
       summary: Listar historial de pagos
-      description: 'RF-M5: Registra el historial de pagos/retiros realizados.'
+      description: 'Registra el historial de pagos/retiros realizados.'
       operationId: listPayouts
       security:
       - BearerAuth:
@@ -486,7 +486,7 @@ paths:
       tags:
       - payouts
       summary: Solicitar un retiro
-      description: 'RF-M5: Solicita un retiro cuando se supera el mínimo y la documentación fiscal está completa. Emite `payout.processed`
+      description: 'Solicita un retiro cuando se supera el mínimo y la documentación fiscal está completa. Emite `payout.processed`
         al completarse.'
       operationId: requestPayout
       security:
@@ -541,7 +541,7 @@ paths:
       tags:
       - payouts
       summary: Registrar o actualizar documentación fiscal
-      description: 'RF-M5: Soporta la documentación fiscal requerida para cobrar.'
+      description: 'Soporta la documentación fiscal requerida para cobrar.'
       operationId: updateTaxProfile
       security:
       - BearerAuth:
@@ -1313,9 +1313,9 @@ components:
       $ref: '06_Publicidad_OpenAPI.yaml#/components/schemas/AdRevenueGeneratedEvent'
     # Estructura del evento `content.published`, definida canónicamente en Catálogo
     # (contexto emisor). Se referencia esa definición para evitar duplicación.
-    ContentPublishedEvent:
-      $ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
+    #ContentPublishedEvent:
+    #  $ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
     # Estructura del evento `restriction.applied`, definida canónicamente en Catálogo
     # (contexto emisor). Se referencia esa definición para evitar duplicación.
-    RestrictionAppliedEvent:
-      $ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
+    #RestrictionAppliedEvent:
+      #$ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
