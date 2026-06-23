@@ -440,7 +440,7 @@ paths:
       - measurement
       summary: Registrar una impresión servida
       description: |-
-        RF-F7: Registra una impresión servida. Al confirmarse como facturable, emite `ad.impression.confirmed` y
+        Registra una impresión servida. Al confirmarse como facturable, emite `ad.impression.confirmed` y
         `ad.revenue.generated` (este último consumido por Monetización).
       operationId: recordImpression
       security:
@@ -1285,12 +1285,65 @@ components:
           type: integer
         total:
           type: integer
-    # Reusar las definitions canónicas desde Catálogo para evitar duplicación.
+    # Copias locales de eventos emitidos por Catálogo para evitar refs externos.
     ContentPublishedEvent:
-      $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
+      type: object
+      description: Estructura canónica del evento `content.published` emitido por Catálogo.
+      required:
+      - eventId
+      - catalogItemId
+      - channelId
+      - publishedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        videoAssetId:
+          type: [string, "null"]
+          format: uuid
+          description: Asset técnico asociado (nullable si no aplica).
+        publishedAt:
+          type: string
+          format: date-time
 
+    # Shape canónica del evento `restriction.applied` emitido por Catálogo.
     RestrictionAppliedEvent:
-      $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
+      type: object
+      description: Estructura canónica del evento `restriction.applied` emitido por Catálogo.
+      required:
+      - eventId
+      - catalogItemId
+      - type
+      - active
+      - appliedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - age
+          - geo
+          - monetization
+          - moderation
+        active:
+          type: boolean
+        reason:
+          type: [string, "null"]
+        appliedAt:
+          type: string
+          format: date-time
+
     # Shape local del evento `engagement.signal` consumido desde Audiencia.
     # Definición propia de este contexto (no $ref externo) para mantener el spec independiente.
     EngagementSignalEvent:
