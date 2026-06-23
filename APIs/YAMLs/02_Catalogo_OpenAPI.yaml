@@ -1170,3 +1170,61 @@ components:
         readyAt:
           type: string
           format: date-time
+    # Shape canónica del evento `content.published` emitido por Catálogo.
+    ContentPublishedEvent:
+      type: object
+      description: Estructura canónica del evento `content.published` emitido por Catálogo.
+      required:
+      - eventId
+      - catalogItemId
+      - channelId
+      - publishedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          format: uuid
+        videoAssetId:
+          type: [string, "null"]
+          format: uuid
+          description: Asset técnico asociado (nullable si no aplica).
+        publishedAt:
+          type: string
+          format: date-time
+
+    # Shape canónica del evento `restriction.applied` emitido por Catálogo.
+    RestrictionAppliedEvent:
+      type: object
+      description: Estructura canónica del evento `restriction.applied` emitido por Catálogo.
+      required:
+      - eventId
+      - catalogItemId
+      - type
+      - active
+      - appliedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - age
+          - geo
+          - monetization
+          - moderation
+        active:
+          type: boolean
+        reason:
+          type: [string, "null"]
+        appliedAt:
+          type: string
+          format: date-time

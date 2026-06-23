@@ -48,8 +48,8 @@ paths:
       description: 'Informa el estado de elegibilidad (apto, pendiente, rechazado) y si la monetización está activa.'
       operationId: getMonetizationStatus
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       responses:
@@ -72,8 +72,8 @@ paths:
         horas de visualización, cumplimiento de políticas).'
       operationId: requestMonetization
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -103,8 +103,8 @@ paths:
       description: 'Activa o desactiva la monetización a nivel canal o contenido. Emite `monetization.enabled` o `monetization.disabled`.'
       operationId: setMonetizationActivation
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -152,8 +152,8 @@ paths:
       description: 'Define un nivel de membresía de canal con precio y beneficios.'
       operationId: createMembershipTier
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -180,8 +180,8 @@ paths:
       summary: Actualizar un nivel de membresía
       operationId: updateMembershipTier
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       - $ref: '#/components/parameters/TierIdParam'
@@ -224,8 +224,8 @@ paths:
       description: 'Habilita o ajusta propinas / agradecimientos del canal.'
       operationId: updateTipsConfig
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -252,9 +252,8 @@ paths:
         del ecosistema creador-espectador.'
       operationId: recordViewerPurchase
       security:
-      - BearerAuth:
-        - viewer
-        - system
+      - BearerAuth: []
+      x-actor: [viewer, system]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -283,8 +282,8 @@ paths:
         pagado).'
       operationId: listIncomeRecords
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       - name: source
@@ -315,8 +314,8 @@ paths:
       summary: Consultar un ingreso registrado
       operationId: getIncomeRecord
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/IncomeRecordIdParam'
       responses:
@@ -337,8 +336,8 @@ paths:
         RPM.'
       operationId: getEarnings
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       - name: from
@@ -382,8 +381,8 @@ paths:
       description: 'Devuelve ganancias desglosadas por contenido, fuente y métricas.'
       operationId: getEarningsByContent
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       - name: from
@@ -417,8 +416,8 @@ paths:
       description: 'Genera un reporte exportable (PDF/CSV) para el creador. La generación es asíncrona.'
       operationId: createEarningsReport
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -446,8 +445,8 @@ paths:
       description: 'Devuelve saldo disponible, pendiente y mínimo de retiro.'
       operationId: getBalance
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       responses:
@@ -467,8 +466,8 @@ paths:
       description: 'Registra el historial de pagos/retiros realizados.'
       operationId: listPayouts
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       - $ref: '#/components/parameters/PageParam'
@@ -490,8 +489,8 @@ paths:
         al completarse.'
       operationId: requestPayout
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -524,8 +523,8 @@ paths:
       summary: Consultar documentación fiscal
       operationId: getTaxProfile
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       responses:
@@ -544,8 +543,8 @@ paths:
       description: 'Soporta la documentación fiscal requerida para cobrar.'
       operationId: updateTaxProfile
       security:
-      - BearerAuth:
-        - creator
+      - BearerAuth: []
+      x-actor: [creator]
       parameters:
       - $ref: '#/components/parameters/ChannelIdParam'
       requestBody:
@@ -575,8 +574,8 @@ paths:
         `advertising` en estado pendiente y aplica revenue share. Idempotente por `referenceId` (impressionId de origen).
       operationId: consumeAdRevenueGeneratedEvent
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
@@ -596,14 +595,14 @@ paths:
       description: Consume `content.published` (de Catálogo) para marcar un contenido como elegible para generar ingresos.
       operationId: consumeContentPublishedEvent
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ContentPublishedEvent'
+              $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
       responses:
         '202':
           description: Evento aceptado.
@@ -618,14 +617,14 @@ paths:
         no monetizable para ingresos futuros.
       operationId: consumeRestrictionAppliedEvent
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RestrictionAppliedEvent'
+              $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
       responses:
         '202':
           description: Evento aceptado.
@@ -1307,8 +1306,8 @@ components:
         documentUrl:
           type: string
           format: uri
-    # Estructura del evento `ad.revenue.generated`, definida canónicamente en Publicidad
-    # (contexto emisor). Se referencia esa definición para evitar duplicación.
+    # Shape local del evento `ad.revenue.generated` consumido desde Publicidad.
+    # Definición propia de este contexto (no $ref externo) para mantener el spec independiente.
     AdRevenueGeneratedEvent:
       $ref: '06_Publicidad_OpenAPI.yaml#/components/schemas/AdRevenueGeneratedEvent'
     # Estructura del evento `content.published`, definida canónicamente en Catálogo

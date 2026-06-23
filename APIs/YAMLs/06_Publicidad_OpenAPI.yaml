@@ -52,8 +52,8 @@ paths:
       description: 'Registra una cuenta de anunciante.'
       operationId: createAdvertiser
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       requestBody:
         required: true
         content:
@@ -98,8 +98,8 @@ paths:
       description: 'Administra los datos de facturación del anunciante.'
       operationId: updateBillingProfile
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       parameters:
       - $ref: '#/components/parameters/AdvertiserIdParam'
       requestBody:
@@ -127,8 +127,8 @@ paths:
       description: 'Crea una campaña con objetivo, presupuesto y vigencia.'
       operationId: createCampaign
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       requestBody:
         required: true
         content:
@@ -152,8 +152,8 @@ paths:
       summary: Listar campañas de un anunciante
       operationId: listCampaigns
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       parameters:
       - name: advertiserId
         in: query
@@ -195,8 +195,8 @@ paths:
       description: 'Pausa, reanuda o finaliza una campaña. No se sirven anuncios si el presupuesto está agotado.'
       operationId: setCampaignStatus
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       parameters:
       - $ref: '#/components/parameters/CampaignIdParam'
       requestBody:
@@ -224,8 +224,8 @@ paths:
       description: 'Sube y registra un creativo (video, display, etc.). Queda en validación según políticas publicitarias.'
       operationId: createCreative
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       requestBody:
         required: true
         content:
@@ -266,8 +266,8 @@ paths:
       description: ' Revisa un creativo pendiente según políticas publicitarias y lo aprueba o rechaza.'
       operationId: reviewCreative
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       parameters:
       - $ref: '#/components/parameters/CreativeIdParam'
       requestBody:
@@ -295,8 +295,8 @@ paths:
       description: 'Asocia un creativo existente a una campaña.'
       operationId: attachCreativeToCampaign
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       parameters:
       - $ref: '#/components/parameters/CampaignIdParam'
       requestBody:
@@ -336,8 +336,8 @@ paths:
       description: 'Define criterios de segmentación (país, edad, intereses, categoría de contenido, etc.).'
       operationId: setTargeting
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       parameters:
       - $ref: '#/components/parameters/CampaignIdParam'
       requestBody:
@@ -365,8 +365,8 @@ paths:
       description: 'Estima el inventario disponible para un conjunto de criterios de segmentación.'
       operationId: estimateInventory
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       requestBody:
         required: true
         content:
@@ -417,8 +417,8 @@ paths:
         targeting, subasta/prioridad y brand safety. Si se sirve un anuncio, emite `ad.served`.
       operationId: decideAd
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
@@ -444,8 +444,8 @@ paths:
         `ad.revenue.generated` (este último consumido por Monetización).
       operationId: recordImpression
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
@@ -469,8 +469,8 @@ paths:
       description: 'Registra un click o un skip asociado a una impresión previamente servida.'
       operationId: recordImpressionInteraction
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       parameters:
       - $ref: '#/components/parameters/ImpressionIdParam'
       requestBody:
@@ -509,8 +509,8 @@ paths:
       description: 'Expone métricas de campaña: impresiones, CTR, CPM, gasto.'
       operationId: getCampaignMetrics
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       parameters:
       - $ref: '#/components/parameters/CampaignIdParam'
       - name: from
@@ -542,8 +542,8 @@ paths:
       description: 'Genera reportes e invoices para el anunciante.'
       operationId: listInvoices
       security:
-      - BearerAuth:
-        - advertiser
+      - BearerAuth: []
+      x-actor: [advertiser]
       parameters:
       - $ref: '#/components/parameters/AdvertiserIdParam'
       - $ref: '#/components/parameters/PageParam'
@@ -565,8 +565,8 @@ paths:
       description: Consume `content.published` (de Catálogo) para incorporar el contenido como inventario potencialmente elegible.
       operationId: consumeContentPublishedEvent
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
@@ -586,8 +586,8 @@ paths:
       description: Consume `restriction.applied` (de Catálogo); marca el contenido como no elegible para anuncios si corresponde.
       operationId: consumeRestrictionAppliedEvent
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
@@ -607,8 +607,8 @@ paths:
       description: Consume `engagement.signal` (de Audiencia) para enriquecer las decisiones de brand safety.
       operationId: consumeEngagementSignalEvent
       security:
-      - BearerAuth:
-        - system
+      - BearerAuth: []
+      x-actor: [system]
       requestBody:
         required: true
         content:
@@ -718,9 +718,8 @@ components:
           type: string
           example: El recurso solicitado no existe.
         details:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
-          nullable: true
           description: Información adicional sobre el error (contexto específico de depuración)
     Advertiser:
       type: object
@@ -824,9 +823,8 @@ components:
           type: string
           format: date
         endDate:
-          type: string
+          type: [string, "null"]
           format: date
-          nullable: true
           description: Fecha de finalización opcional. Null si la campaña es indefinida o finaliza por presupuesto.
         status:
           type: string
@@ -936,9 +934,8 @@ components:
           type: string
           format: uri
         durationSeconds:
-          type: integer
+          type: [integer, "null"]
           minimum: 0
-          nullable: true
           description: Duración en segundos. Null si format=display (solo aplica a creativos de video).
         status:
           type: string
@@ -947,8 +944,7 @@ components:
           - approved
           - rejected
         reviewReason:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Motivo del rechazo si status=rejected. Null en otros estados.
         createdAt:
           type: string
@@ -988,8 +984,7 @@ components:
           - approved
           - rejected
         reason:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Motivo del rechazo. Se persiste en reviewReason cuando decision=rejected.
     Targeting:
       type: object
@@ -1072,19 +1067,16 @@ components:
           type: string
           format: uuid
         videoAssetId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Asset técnico del video. Null si no se conoce o no aplica.
         channelId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Canal propietario del contenido. Null si no se conoce.
         viewerId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: ID del espectador. Null si es anónimo.
         slot:
           type: string
@@ -1097,13 +1089,11 @@ components:
           minLength: 2
           maxLength: 2
         age:
-          type: integer
+          type: [integer, "null"]
           minimum: 0
-          nullable: true
           description: Edad estimada del espectador. Null si se desconoce.
         contentCategory:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Categoría del contenido para decisiones de brand safety. Null si se desconoce.
     AdDecision:
       type: object
@@ -1115,23 +1105,19 @@ components:
           type: boolean
           description: true si se sirvió un anuncio, false si no hay inventario/cumple restricciones.
         impressionId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: ID de la oportunidad si adServed=true. Null si adServed=false. Se usa al registrar la impresión.
         campaignId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Campaña seleccionada si adServed=true. Null si adServed=false.
         creativeId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Creativo seleccionado si adServed=true. Null si adServed=false.
         reason:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Motivo cuando adServed=false (ej. sin inventario, brand safety, presupuesto agotado).
     ImpressionRequest:
       type: object
@@ -1155,19 +1141,16 @@ components:
           type: string
           format: uuid
         videoAssetId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Asset técnico del video. Información opcional para auditoría y debugging.
         channelId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Canal propietario. Información opcional para auditoría y debugging.
         viewerId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: ID del espectador. Información opcional para auditoría y debugging.
         servedAt:
           type: string
@@ -1194,9 +1177,8 @@ components:
           type: string
           format: uuid
         channelId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Canal propietario. Puede ser null si se pierde la referencia durante la auditoría.
         status:
           type: string
@@ -1303,18 +1285,45 @@ components:
           type: integer
         total:
           type: integer
-    # Estructura del evento `content.published`, definida canónicamente en Catálogo
-    # (contexto emisor). Se referencia esa definición para evitar duplicación.
+    # Reusar las definitions canónicas desde Catálogo para evitar duplicación.
     ContentPublishedEvent:
-      $ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
-    # Estructura del evento `restriction.applied`, definida canónicamente en Catálogo
-    # (contexto emisor). Se referencia esa definición para evitar duplicación.
+      $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/ContentPublishedEvent'
+
     RestrictionAppliedEvent:
-      $ref: '02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
-    # Estructura del evento `engagement.signal`, definida canónicamente en Audiencia
-    # (contexto emisor). Se referencia esa definición para evitar duplicación.
+      $ref: './02_Catalogo_OpenAPI.yaml#/components/schemas/RestrictionAppliedEvent'
+    # Shape local del evento `engagement.signal` consumido desde Audiencia.
+    # Definición propia de este contexto (no $ref externo) para mantener el spec independiente.
     EngagementSignalEvent:
-      $ref: '04_Audiencia_OpenAPI.yaml#/components/schemas/EngagementSignalEvent'
+      type: object
+      description: Estructura esperada del evento `engagement.signal`, interpretada desde la perspectiva de Publicidad para brand safety.
+      required:
+      - eventId
+      - catalogItemId
+      - signalType
+      - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+        channelId:
+          type: [string, "null"]
+          format: uuid
+        signalType:
+          type: string
+          enum:
+          - reaction
+          - comment
+          - view_time
+        contentCategory:
+          type: [string, "null"]
+        aggregatedScore:
+          type: [number, "null"]
+        occurredAt:
+          type: string
+          format: date-time
     AdRevenueGeneratedEvent:
       type: object
       description: |-
@@ -1347,9 +1356,8 @@ components:
           format: uuid
           description: Contenido sobre el que se sirvió el anuncio (referencia a Catálogo).
         videoAssetId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: Asset técnico asociado. Null si no se conoce o no aplica.
         channelId:
           type: string
