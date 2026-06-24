@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Descubrimiento y personalización
-  version: 1.0.1
+  version: 1.0.0
   description: |
     Gestiona **cómo los espectadores encuentran contenido**: búsqueda, feed de inicio
     personalizado, videos relacionados y contenido en tendencia (trending).
@@ -29,8 +29,18 @@ info:
     - `recommendation.served` — un set de recomendaciones fue mostrado a un usuario
     - `search.performed` — una búsqueda fue ejecutada
 
+    ## Consistencia eventual
+    Este contexto puede estar momentáneamente desincronizado respecto a Catálogo.
+    Si un video se despublica o restringe mientras un espectador lo está
+    reproduciendo, la sesión de reproducción en curso (gestionada por
+    Publicación) no se interrumpe — pero el video deja de aparecer en
+    resultados de búsqueda, feed y trending en cuanto se procesa la señal
+    `content_unpublished` / `content_restricted`. La validación de visibilidad
+    real es siempre responsabilidad de Catálogo; este contexto solo refleja
+    ese estado con una latencia breve.
+
 servers:
-  - url: /api/discovery/v1
+  - url: https://api.youtube-clone.com/discovery/v1
     description: Servidor de producción
 
 security:
@@ -48,7 +58,13 @@ tags:
   - name: signals
     description: Ingesta de señales de interacción desde otros contextos
 
+# ──────────────────────────────────────────────────────────────────────────────
+# PATHS
+# ──────────────────────────────────────────────────────────────────────────────
+
 paths:
+
+  # ── Search ───────────────────────────────────────────────────────────────────
 
   /search:
     get:
@@ -216,7 +232,7 @@ paths:
 
   # ── Related / recommendations ───────────────────────────────────────────────
 
-  /videos/{videoId}/related:
+  /videos/{catalogItemId}/related:
     get:
       summary: Obtener videos relacionados
       description: >
@@ -226,7 +242,7 @@ paths:
       operationId: getRelatedVideos
       tags: [related]
       parameters:
-        - name: videoId
+        - name: catalogItemId
           in: path
           required: true
           description: ID del VideoAsset/contenido de referencia
@@ -250,7 +266,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /videos/{videoId}/autoplay-next:
+  /videos/{catalogItemId}/autoplay-next:
     get:
       summary: Obtener siguiente video sugerido para autoplay
       description: >
@@ -259,7 +275,7 @@ paths:
       operationId: getAutoplayNext
       tags: [related]
       parameters:
-        - name: videoId
+        - name: catalogItemId
           in: path
           required: true
           schema:
@@ -457,6 +473,10 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+# ──────────────────────────────────────────────────────────────────────────────
+# COMPONENTS
+# ──────────────────────────────────────────────────────────────────────────────
+
 components:
 
   securitySchemes:
@@ -518,12 +538,12 @@ components:
         editorial completa (título, descripción, thumbnail) se obtiene del
         contexto de Catálogo; aquí solo se referencia el ID y datos mínimos
         de display cacheados para evitar llamadas adicionales.
-      required: [kind, videoId, cachedTitle, durationSeconds]
+      required: [kind, catalogItemId, cachedTitle, durationSeconds]
       properties:
         kind:
           type: string
           enum: [video]
-        videoId:
+        catalogItemId:
           type: string
           format: uuid
         cachedTitle:
@@ -722,9 +742,9 @@ components:
           type: array
           items:
             type: object
-            required: [videoId, position]
+            required: [catalogItemId, position]
             properties:
-              videoId:
+              catalogItemId:
                 type: string
                 format: uuid
               position:
@@ -733,12 +753,12 @@ components:
 
     ClickRequest:
       type: object
-      required: [surface, videoId]
+      required: [surface, catalogItemId]
       properties:
         surface:
           type: string
           enum: [home_feed, related, search, trending, explore]
-        videoId:
+        catalogItemId:
           type: string
           format: uuid
         position:
@@ -775,18 +795,32 @@ components:
 
     IngestSignalRequest:
       type: object
-      required: [type, videoId, occurredAt]
+      required: [type, catalogItemId, occurredAt]
       properties:
         type:
           type: string
           enum:
             - playback_completed
             - content_published
+            - content_unpublished
+            - content_restricted
             - like
+            - dislike
             - comment
             - subscription
-          description: Tipo de evento de origen
-        videoId:
+            - save_for_later
+          description: >
+            Tipo de señal de origen.
+            `playback_completed` viene de Publicación;
+            `content_published`, `content_unpublished`, `content_restricted` vienen de Catálogo;
+            `like`, `dislike`, `comment`, `subscription`, `save_for_later` vienen de Audiencia
+            vía el evento `engagement.signal`.
+            - subscription
+          description: >
+            Tipo de evento de origen. `content_published` indexa el contenido;
+            `content_unpublished` y `content_restricted` lo remueven o excluyen
+            del índice (RF-D6), según lo notificado por Catálogo.
+        catalogItemId:
           type: string
           format: uuid
         userId:
