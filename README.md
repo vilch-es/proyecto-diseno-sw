@@ -16,6 +16,6 @@
 > - Josefa: Monetización y Publicidad.
 
 # Atajos a los archivos:
-### [Especificaciones OpenAPI](APIs/YAMLs)
-### [Notas de integración entre Bounded Contexts (Diagrama de secuencias)](APIs/Diagramas/Notas Diagrama de Secuencia.md)
-### [Diagrama Secuencia](APIs/Diagramas/Diagrama Secuencia Proyecto.drawio.svg)
+[Especificaciones OpenAPI](APIs/YAMLs)  
+[Diagrama de Secuencia](https://github.com/vilch-es/proyecto-diseno-sw/blob/main/Diagramas/Diagrama%20Secuencia%20Proyecto.drawio.png)  
+[Notas de integracion entre Bounded Contexts](https://github.com/vilch-es/proyecto-diseno-sw/blob/main/Diagramas/Notas%20Diagrama%20de%20Secuencia.md)  
