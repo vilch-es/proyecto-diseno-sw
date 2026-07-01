@@ -816,10 +816,7 @@ components:
             `like`, `dislike`, `comment`, `subscription`, `save_for_later` vienen de Audiencia
             vía el evento `engagement.signal`.
             - subscription
-          description: >
-            Tipo de evento de origen. `content_published` indexa el contenido;
-            `content_unpublished` y `content_restricted` lo remueven o excluyen
-            del índice (RF-D6), según lo notificado por Catálogo.
+
         catalogItemId:
           type: string
           format: uuid
